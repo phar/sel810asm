@@ -106,11 +106,16 @@ for l in ll:
 					ADDR_MODE = MODE_ABSOLUTE
 					
 				elif op == "ORG":
-					if finfunc == "'": #octal
+					if addridx[0] == "'": #octal
 						addr = int(addridx[1:], 8)
 					elif addridx[0] == "=": #dec
 						addr  = int(addridx[1:], 8)
 						
+					if ADDR_MODE == MODE_ABSOLUTE:
+						CUR_ADDRESS  = addr
+					elif ADDR_MODE == MODE_RELATIVE:
+						CUR_ADDRESS  += addr
+
 				elif op == "DATA":
 					if addridx[0] == "'": #octal
 						val = int(addridx[1:], 8)
@@ -121,6 +126,8 @@ for l in ll:
 					if addridx[0] == "'": #octal
 						val = int(addridx[1:], 8)
 					LABELS[label] = val
+					
+				PROGRAM_LISTING.append((op, None ,addridx))
 
 			
 			elif op in BASE_OPCODES:
@@ -161,9 +168,27 @@ print(PROGRAM_LISTING)
 #second pass
 PROGRAM = []
 CUR_ADDRESS = 0
-
 for op,opcode,finfunc in PROGRAM_LISTING:
-
+	if op in PSEUDO_OPCODES:
+		if op == "REL":
+			ADDR_MODE = MODE_RELATIVE
+			
+		elif op == "ABS":
+			ADDR_MODE = MODE_ABSOLUTE
+			
+		elif op == "ORG":
+			if finfunc[0] == "'": #octal
+				addr = int(finfunc[1:], 8)
+			elif finfunc[0] == "=": #dec
+				addr  = int(finfunc[1:], 8)
+				
+			if ADDR_MODE == MODE_ABSOLUTE:
+				CUR_ADDRESS  = addr
+			elif ADDR_MODE == MODE_RELATIVE:
+				CUR_ADDRESS  += addr
+		elif op == "DATA":
+			PROGRAM.append(finfunc)
+			
 	if op in BASE_OPCODES:
 		PROGRAM.append(finfunc(opcode))
 		print("%s %04x %s 0x%04x" % (op, CUR_ADDRESS,oct(PROGRAM[-1]),PROGRAM[-1]))
@@ -175,5 +200,5 @@ for op,opcode,finfunc in PROGRAM_LISTING:
 		CUR_ADDRESS += 1
 
 
-#print(PROGRAM_LISTING)
+print(PROGRAM)
 # pseudo "ABS","REL","ORG","EQU", "DAC", "EAC","DATA"

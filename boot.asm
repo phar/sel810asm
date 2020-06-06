@@ -1,3 +1,7 @@
+***************************
+* boot strap loader from tape
+****************************
+     ORG  '001000
 STRT CEU  U,W
      DATA '001000
      AIP  2,W
