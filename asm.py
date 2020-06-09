@@ -1,4 +1,5 @@
 import struct
+import re
 
 """
 rel 4
@@ -30,25 +31,31 @@ absolute (1234) address by an intervening plus
 (+) or minus (-) operator to define an effective
 address (NAME+ 4). The above may be extended to more than two operands ' (A - B + 2).
 
+
 """
 
 PSEUDO_OPCODES = {"ABS":(),"REL":(),"ORG":(),"EQU":(),"DAC":(),"EAC":(),"DATA":(), "END":()}
 
-BASE_OPCODES = {"LAA":1,"LBA":2,"STA":3,"STB":4,"AMA":5,"SMA":6,"MPY":7,"DIV":10,"BRU":11,"SPB":12,"IMS":14,"CMA":15,"AMB":16}
+BASE_OPCODES = {"LAA":0o1,"LBA":0o2,"STA":0o3,"STB":0o4,"AMA":0o5,"SMA":0o6,"MPY":0o7,"DIV":0o10,"BRU":0o11,"SPB":0o12,"IMS":0o14,"CMA":0o15,"AMB":0o16}
 
-AUGMENTED_OPCODES = { "ABA":(0,27),"ASC":(0,20),"CLA":(0,3), "CNS":(0,34),"CSB":(0,7), "FLA":(0,17),"FLL":(0,13),"FRA":(0,12),
-					  "FRL":(0,14),"HLT":(0,0), "IAB":(0,6), "IBS":(0,26),"ISX":(0,51),"LCS":(0,31),"LIX":(0,45),"LOB":(0,36),
-					  "LSA":(0,11),"LSL":(0,16),"NEG":(0,2), "NOP":(0,33),"OBA":(0,30),"OVS":(0,37),"RNA":(0,1), "RSA":(0,10),
-					  "RSL":(0,15),"SAN":(0,23),"SAP":(0,24),"SAS":(0,21),"SAZ":(0,22),"SNO":(0,32),"SOF":(0,25),"STX":(0,44),
-					  "STB":(0,50),"TAB":(0,5), "TAZ":(0,52),"TBA":(0,4), "TBP":(0,40),"TBV":(0,42),"TOI":(0,35),"TPB":(0,41),
-					  "TVB":(0,43),"TXA":(0,53),"XPB":(0,47),"XPX":(0,46)}
+AUGMENTED_OPCODES = { "ABA":(0,0o27),"ASC":(0,0o20),"CLA":(0,0o3), "CNS":(0,0o34),"CSB":(0,0o7), "FLA":(0,0o17),"FLL":(0,0o13),"FRA":(0,0o12),
+					  "FRL":(0,0o14),"HLT":(0,0o0), "IAB":(0,0o6), "IBS":(0,0o26),"ISX":(0,0o51),"LCS":(0,0o31),"LIX":(0,0o45),"LOB":(0,0o36),
+					  "LSA":(0,0o11),"LSL":(0,0o16),"NEG":(0,0o2), "NOP":(0,0o33),"OBA":(0,0o30),"OVS":(0,0o37),"RNA":(0,0o1), "RSA":(0,0o10),
+					  "RSL":(0,0o15),"SAN":(0,0o23),"SAP":(0,0o24),"SAS":(0,0o21),"SAZ":(0,0o22),"SNO":(0,0o32),"SOF":(0,0o25),"STX":(0,0o44),
+					  "STB":(0,0o50),"TAB":(0,0o5), "TAZ":(0,0o52),"TBA":(0,0o4), "TBP":(0,0o40),"TBV":(0,0o42),"TOI":(0,0o35),"TPB":(0,0o41),
+					  "TVB":(0,0o43),"TXA":(0,0o53),"XPB":(0,0o47),"XPX":(0,0o46)}
+					  
+IO_OPCODES = {"CEU":(0o13,0,1,1,0o0),"MIP":(0o13,0,1,1,0o6),"MOP":(0o13,0,1,1,4),"TEU":(0o13,0,1,1,0o2)}
+
+INT_OPCODES ={"PID":(0o130601),"PIE":(0o130600)}
 
 f = open("boot.asm")
 ll = f.readlines()
 
 asmlineseq = [5,10,24]
 
-LABELS = {}
+SYMBOLS = {}
+EXTERNAL_SYMBOLS = {}
 MODE_RELATIVE = 0
 MODE_ABSOLUTE = 1
 
@@ -56,6 +63,82 @@ ADDR_MODE = MODE_ABSOLUTE
 
 CUR_ADDRESS = 0
 PROGRAM_LISTING = []
+
+def octprint(val,pad=6):
+	return '0o' + oct(val)[2:].zfill(pad)
+
+
+def detectarg(argstring):
+	argstring = argstring.strip()
+	bnext = 0
+	sign = 1
+	if argstring[bnext] == "-":
+		sign = -1
+		bnext += 1
+	elif argstring[bnext] == "+":
+		bnext += 1
+		
+	if argstring[bnext] == "'": #octal
+		bnext += 1
+		if argstring[bnext] == "'": #alphanumeric
+			bnext += 1
+			t = "str"
+			lambdaparse = lambda x,y=bnext : str(x[y:-2])
+		else:
+			t = "oct"
+			lambdaparse = lambda x,y=bnext,s=sign : int(x[y:],8) * s
+			
+	elif argstring[bnext] == "h": #hex
+		bnext += 1
+		t = "hex"
+		lambdaparse = lambda x,y=bnext,s=sign : int(x[y:],16) * s
+		
+	elif argstring[bnext] == "*": #current
+		t = "ip"
+		lambdaparse = lambda x,y =CUR_ADDRESS,s=sign : y * s
+		
+	elif argstring[bnext:] in SYMBOLS:
+		t = "label"
+		lambdaparse = lambda x,y=bnext,s=sign  : SYMBOLS[x[y:]][1] * s
+		
+	else: #bare number.. still more work
+		if "." in argstring: #float or fixed
+			if "E" in argstring or "e" in argstring: #float
+				t = "float"
+				lambdaparse = lambda  x  : float(x)
+			else: #fixed
+				t = "fixed"
+				lambdaparse = lambda  x  : Decimal(x)
+		else:#decimal
+			t = "dec"
+			lambdaparse = lambda  x: int(x)
+	return (t,lambdaparse)
+	
+	
+
+
+def parsearg(argstring):
+	argparts = re.split("(\+|\-)",argstring)
+	total = lambda :0
+	mth = lambda x,y : x()+y()
+	for i in range(len(argparts)):
+		if argparts[i] != "":
+			if argparts[i] in ["+","-"]:
+				if argparts[i] == "-":
+#					print("minus")
+					mth = lambda x,y : x()-y()
+				else:
+#					print("plus")
+					mth = lambda x,y : x()+y()
+			else:
+				t,f = detectarg(argparts[i])
+#				print(f(argparts[i]))
+				if t == 'str':
+					return lambda x=f : x(argparts[i])
+				else:
+					total = lambda x=total, y = lambda x=f,y=argparts[i] : x(y): mth(x, y)
+	return total
+
 
 #FIRST PASS
 for l in ll:
@@ -95,7 +178,7 @@ for l in ll:
 			op = op.strip()
 
 		if label:
-			LABELS[label] = CUR_ADDRESS
+			SYMBOLS[label] = ("int",CUR_ADDRESS)
 
 		if op:
 			if op in PSEUDO_OPCODES:
@@ -106,27 +189,25 @@ for l in ll:
 					ADDR_MODE = MODE_ABSOLUTE
 					
 				elif op == "ORG":
-					if addridx[0] == "'": #octal
-						addr = int(addridx[1:], 8)
-					elif addridx[0] == "=": #dec
-						addr  = int(addridx[1:], 8)
-						
+					addr = parsearg(addridx)
 					if ADDR_MODE == MODE_ABSOLUTE:
-						CUR_ADDRESS  = addr
+						CUR_ADDRESS  = addr()
 					elif ADDR_MODE == MODE_RELATIVE:
-						CUR_ADDRESS  += addr
+						CUR_ADDRESS  += addr()
 
 				elif op == "DATA":
-					if addridx[0] == "'": #octal
-						val = int(addridx[1:], 8)
+					vallist = []
+					print(addridx)
+					for i in addridx.split(","):
+						vallist.append(parsearg(i.strip()))
 						CUR_ADDRESS += 1
-						PROGRAM_LISTING.append((op, 0x0,val))
+					PROGRAM_LISTING.append((op, 0x0,vallist))
+					continue
 
 				elif op == "EQU":
-					if addridx[0] == "'": #octal
-						val = int(addridx[1:], 8)
-					LABELS[label] = val
-					
+					val = parsearg(addridx)()
+					SYMBOLS[label] = ("int",val)
+					continue
 				PROGRAM_LISTING.append((op, None ,addridx))
 
 			
@@ -135,29 +216,24 @@ for l in ll:
 				indirect_bit = 0
 				map_bit = 0
 				
-				addr =  None #just here to cause  errors
-				if addridx[0] == "'": #octal
-					addrfunc = lambda x,y=addridx[1:] : (x | int(y, 8))
-					
-				elif addridx[0] == "=": #dec
-					addrfunc  = lambda x,y=addridx[1:] : (x | int(y, 8))
-					
-				elif addridx[0] == "$": #external symbolic address
-					print(chunkdat)
-
-				elif addridx[0] == "*": #current location
-					print(chunkdat)
-					addrfunc = lambda x,y=CUR_ADDRESS : x | y
-				else:
-					addrfunc =  lambda x,y=addridx : x | LABELS[y]
+				taddridxparts = addridx.split(",")
+				addridxparts = []
+				for p in taddridxparts:
+					addridxparts.append(parsearg(p))
 
 				opcode = (BASE_OPCODES[op] << 12) | (index_bit << 11) | (indirect_bit << 10) | (map_bit << 9)
-				PROGRAM_LISTING.append((op, opcode,addrfunc))
+				PROGRAM_LISTING.append((op, opcode,addridxparts))
 				CUR_ADDRESS += 1
 				
 			elif op in AUGMENTED_OPCODES:
 				shifts = 0
 				opcode = (AUGMENTED_OPCODES[op][0] << 12) | (shifts << 6) |  AUGMENTED_OPCODES[op][1]
+				PROGRAM_LISTING.append((op, opcode,lambda x:x))
+				CUR_ADDRESS += 1
+				
+			elif op in IO_OPCODES:
+				pass
+			elif op in INT_OPCODES:
 				PROGRAM_LISTING.append((op, opcode,lambda x:x))
 				CUR_ADDRESS += 1
 			else:
@@ -175,30 +251,42 @@ for op,opcode,finfunc in PROGRAM_LISTING:
 			
 		elif op == "ABS":
 			ADDR_MODE = MODE_ABSOLUTE
-			
+
 		elif op == "ORG":
-			if finfunc[0] == "'": #octal
-				addr = int(finfunc[1:], 8)
-			elif finfunc[0] == "=": #dec
-				addr  = int(finfunc[1:], 8)
-				
+			addr = parsearg(finfunc)()
 			if ADDR_MODE == MODE_ABSOLUTE:
 				CUR_ADDRESS  = addr
 			elif ADDR_MODE == MODE_RELATIVE:
 				CUR_ADDRESS  += addr
+				
 		elif op == "DATA":
-			PROGRAM.append(finfunc)
+			print("moo",finfunc)
+			for b in finfunc:
+				PROGRAM.append(b())
+				CUR_ADDRESS += 1
 			
-	if op in BASE_OPCODES:
-		PROGRAM.append(finfunc(opcode))
-		print("%s %04x %s 0x%04x" % (op, CUR_ADDRESS,oct(PROGRAM[-1]),PROGRAM[-1]))
+	elif op in BASE_OPCODES:
+		vals = [x() for x in finfunc]
+#		PROGRAM.append(vals)#fixme
+	
+		PROGRAM.append(opcode)#fixme
 		CUR_ADDRESS += 1
 		
 	elif op in AUGMENTED_OPCODES:
 		PROGRAM.append(finfunc(opcode))
-		print("%s %04x %s 0x%04x" % (op, CUR_ADDRESS,oct(PROGRAM[-1]),PROGRAM[-1]))
+		print("%s %04x %s 0x%04x" % (op, CUR_ADDRESS,octprint(PROGRAM[-1]),PROGRAM[-1]))
+		CUR_ADDRESS += 1
+		
+	elif op in IO_OPCODES:
+		pass
+		
+	elif op in INT_OPCODES:
+		PROGRAM.append(finfunc(opcode))
+		print("%s %04x %s 0x%04x" % (op, CUR_ADDRESS,octprint(PROGRAM[-1]),PROGRAM[-1]))
 		CUR_ADDRESS += 1
 
+#print(PROGRAM)
+for o in range(len(PROGRAM)):
+	print("%s\t%s\t0x%06x" % (o, octprint(PROGRAM[o]),PROGRAM[o]))
 
-print(PROGRAM)
 # pseudo "ABS","REL","ORG","EQU", "DAC", "EAC","DATA"
