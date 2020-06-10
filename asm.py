@@ -45,9 +45,12 @@ AUGMENTED_OPCODES = { "ABA":(0,0o27),"ASC":(0,0o20),"CLA":(0,0o3), "CNS":(0,0o34
 					  "STB":(0,0o50),"TAB":(0,0o5), "TAZ":(0,0o52),"TBA":(0,0o4), "TBP":(0,0o40),"TBV":(0,0o42),"TOI":(0,0o35),"TPB":(0,0o41),
 					  "TVB":(0,0o43),"TXA":(0,0o53),"XPB":(0,0o47),"XPX":(0,0o46)}
 					  
-IO_OPCODES = {"CEU":(0o13,0,1,1,0o0),"MIP":(0o13,0,1,1,0o6),"MOP":(0o13,0,1,1,4),"TEU":(0o13,0,1,1,0o2)}
+IO_OPCODES = {"CEU":(0o13,0),"MIP":(0o13,0),"MOP":(0o13,0),"TEU":(0o13,0),"AIP":(0o17,0o2),"AOP":(0o17,0o00)}
 
 INT_OPCODES ={"PID":(0o130601),"PIE":(0o130600)}
+
+
+
 
 f = open("boot.asm")
 ll = f.readlines()
@@ -141,7 +144,8 @@ def parsearg(argstring):
 
 
 #FIRST PASS
-for l in ll:
+for lnum in range(len(ll)):
+	l = ll[lnum]
 	l = l.replace("\n","")
 	l = list(l)
 
@@ -169,12 +173,16 @@ for l in ll:
 		
 		if label == '':
 			label = None
-			
+		
+		indirect_bit = False
 		if op != None:
 			if op.upper() == "DATA":
 				if comment != None:
 					addridx += comment
 				comment = None
+			elif "*" in op:
+				op = op.replace("*"," ") #indirect instruction
+				indirect_bit = True
 			op = op.strip()
 
 		if label:
@@ -196,24 +204,39 @@ for l in ll:
 						CUR_ADDRESS  += addr()
 
 				elif op == "DATA":
-					vallist = []
-					print(addridx)
 					for i in addridx.split(","):
-						vallist.append(parsearg(i.strip()))
+						v = parsearg(i.strip())
 						CUR_ADDRESS += 1
-					PROGRAM_LISTING.append((op, 0x0,vallist))
+						PROGRAM_LISTING.append((lnum,op, 0x0,lambda x: [x]))
 					continue
 
 				elif op == "EQU":
 					val = parsearg(addridx)()
 					SYMBOLS[label] = ("int",val)
 					continue
-				PROGRAM_LISTING.append((op, None ,addridx))
+					
+				elif op == "DAC":
+
+					if len(addridx.split(",")) == 1:
+						pass
+					elif len(addridx.split(",")) == 2:
+						pass
+					val = 0 #fixme
+#					(unit, wait, merge) = addridx.split(",")
+#					val = parsearg(addridx)()
+					PROGRAM_LISTING.append((lnum,op, val,lambda x: [x]))
+					continue
+					
+				elif op == "EAC":
+					val = parsearg(addridx)()
+					PROGRAM_LISTING.append((lnum,op, val,lambda x: [x]))
+					continue
+					
+				PROGRAM_LISTING.append((lnum,op, None ,[addridx]))
 
 			
 			elif op in BASE_OPCODES:
 				index_bit = 0
-				indirect_bit = 0
 				map_bit = 0
 				
 				taddridxparts = addridx.split(",")
@@ -222,20 +245,67 @@ for l in ll:
 					addridxparts.append(parsearg(p))
 
 				opcode = (BASE_OPCODES[op] << 12) | (index_bit << 11) | (indirect_bit << 10) | (map_bit << 9)
-				PROGRAM_LISTING.append((op, opcode,addridxparts))
+				PROGRAM_LISTING.append((lnum, op, opcode,lambda x:[x]))
 				CUR_ADDRESS += 1
 				
+#				PROGRAM_LISTING.append(("DATA", 0,lambda x: [0])) #fixme
+#				CUR_ADDRESS += 1
+
 			elif op in AUGMENTED_OPCODES:
-				shifts = 0
-				opcode = (AUGMENTED_OPCODES[op][0] << 12) | (shifts << 6) |  AUGMENTED_OPCODES[op][1]
-				PROGRAM_LISTING.append((op, opcode,lambda x:x))
+				shift_count = 0
+				
+#				if addridx != None:
+#					augment_code = parsearg(addridx.strip())()
+#
+				print(augment_code)
+				opcode = (AUGMENTED_OPCODES[op][0] << 12) | (shift_count << 6) | AUGMENTED_OPCODES[op][1]
+				PROGRAM_LISTING.append((lnum, op, opcode,lambda x:[x]))
 				CUR_ADDRESS += 1
 				
 			elif op in IO_OPCODES:
-				pass
-			elif op in INT_OPCODES:
-				PROGRAM_LISTING.append((op, opcode,lambda x:x))
+				x_bit = False
+				map_bit = False
+				augment_code = 0
+				wait_bit = False
+				merge_bit = False
+
+
+				merge = False
+				wait = False
+				if len(addridx.split(",")) == 2:
+					(unit, wait) = addridx.split(",")
+				elif  len(addridx.split(",")) == 3:
+					(unit, wait, merge) = addridx.split(",")
+				if merge == "R":
+					merge_bit = True
+
+				if wait == "W":
+					wait_bit = True
+					
+				print(op)
+				unit = parsearg(unit)
+				
+				opcode = (IO_OPCODES[op][0] << 12) | (IO_OPCODES[op][1] << 7) |(merge_bit << 11) | (indirect_bit << 10) | (map_bit << 9) |  (wait_bit << 6)
 				CUR_ADDRESS += 1
+				PROGRAM_LISTING.append((lnum, op, opcode,lambda x:[x]))
+
+			elif op in INT_OPCODES:
+				merge_bit = 0
+				augment_code = 0
+				
+				if addridx:
+					augment_code = parsearg(addridx)
+					
+				opcode = (INT_OPCODES[op] << 12) | augment_code
+				PROGRAM_LISTING.append((lnum, op, opcode,lambda x:[x]))
+				CUR_ADDRESS += 1
+
+				if map_bit == 0:
+					PROGRAM_LISTING.append((lnum,"DATA", 0,lambda x: [0])) #fixme
+					CUR_ADDRESS += 1
+				else:
+					pass
+
 			else:
 				print("unhandled %s" % chunkdat)
 				
@@ -244,7 +314,8 @@ print(PROGRAM_LISTING)
 #second pass
 PROGRAM = []
 CUR_ADDRESS = 0
-for op,opcode,finfunc in PROGRAM_LISTING:
+for lnum, op,opcode,finfunc in PROGRAM_LISTING:
+	print(op)
 	if op in PSEUDO_OPCODES:
 		if op == "REL":
 			ADDR_MODE = MODE_RELATIVE
@@ -253,40 +324,44 @@ for op,opcode,finfunc in PROGRAM_LISTING:
 			ADDR_MODE = MODE_ABSOLUTE
 
 		elif op == "ORG":
-			addr = parsearg(finfunc)()
+			addr = parsearg(finfunc[0])()
 			if ADDR_MODE == MODE_ABSOLUTE:
 				CUR_ADDRESS  = addr
 			elif ADDR_MODE == MODE_RELATIVE:
 				CUR_ADDRESS  += addr
-				
+
+		elif op == "DAC":
+			for b in finfunc(opcode):
+					PROGRAM.append((lnum,b))
+					CUR_ADDRESS += 1
+		
 		elif op == "DATA":
-			print("moo",finfunc)
-			for b in finfunc:
-				PROGRAM.append(b())
+			for b in finfunc(opcode):
+				PROGRAM.append((lnum,b))
 				CUR_ADDRESS += 1
 			
 	elif op in BASE_OPCODES:
-		vals = [x() for x in finfunc]
-#		PROGRAM.append(vals)#fixme
-	
-		PROGRAM.append(opcode)#fixme
-		CUR_ADDRESS += 1
+		for b in finfunc(opcode):
+			PROGRAM.append((lnum,b))
+			CUR_ADDRESS += 1
 		
 	elif op in AUGMENTED_OPCODES:
-		PROGRAM.append(finfunc(opcode))
-		print("%s %04x %s 0x%04x" % (op, CUR_ADDRESS,octprint(PROGRAM[-1]),PROGRAM[-1]))
-		CUR_ADDRESS += 1
+		for b in finfunc(opcode):
+			PROGRAM.append((lnum,b))
+			CUR_ADDRESS += 1
 		
 	elif op in IO_OPCODES:
-		pass
-		
-	elif op in INT_OPCODES:
-		PROGRAM.append(finfunc(opcode))
-		print("%s %04x %s 0x%04x" % (op, CUR_ADDRESS,octprint(PROGRAM[-1]),PROGRAM[-1]))
-		CUR_ADDRESS += 1
+		for b in finfunc(opcode):
+			PROGRAM.append((lnum,b))
+			CUR_ADDRESS += 1
 
-#print(PROGRAM)
+	elif op in INT_OPCODES:
+		for b in finfunc(opcode):
+			PROGRAM.append((lnum,b))
+			CUR_ADDRESS += 1
+
+print(len(PROGRAM))
 for o in range(len(PROGRAM)):
-	print("%s\t%s\t0x%06x" % (o, octprint(PROGRAM[o]),PROGRAM[o]))
+	print("Line #%04d\tAddr:%s\tOCT:%s\tHEX:0x%04x" % (PROGRAM[o][0], o, octprint(PROGRAM[o][1]),PROGRAM[o][1]))
 
 # pseudo "ABS","REL","ORG","EQU", "DAC", "EAC","DATA"

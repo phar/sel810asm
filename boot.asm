@@ -2,19 +2,22 @@
 * boot strap loader from tape
 ****************************
      ORG  '001000
-DAC1 EQU  0
-DAC2 EQU  2
+*i still dont know what CHAN actually is
 CHAN EQU  5
-STRT CEU  U,W
+UNIT EQU  2
+STRT CEU  UNIT,W
      DATA '001000
-     AIP  2,W
+     AIP  UNIT,W
      SAZ
-     BRU  *
-     BRU  *
-READ AIP  2,W,R
-     STA  DAC1
+     BRU  * 2
+     BRU  * -3
+READ AIP  UNIT,W,R
+     LSL  8
+     API  UNIT,W,R
+     STA* DAC1
      SAZ
      IBS
-     BRU  DAC2
-     DAC  CHAN-1,1
-     DAC  CHAN
+     BRU* DAC2
+     BRU  READ
+DAC1 DAC  CHAN-2,1
+DAC2 DAC  CHAN
