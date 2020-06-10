@@ -1,5 +1,6 @@
 import struct
 import re
+import json
 
 """
 rel 4
@@ -45,7 +46,7 @@ AUGMENTED_OPCODES = { "ABA":(0,0o27),"ASC":(0,0o20),"CLA":(0,0o3), "CNS":(0,0o34
 					  "STB":(0,0o50),"TAB":(0,0o5), "TAZ":(0,0o52),"TBA":(0,0o4), "TBP":(0,0o40),"TBV":(0,0o42),"TOI":(0,0o35),"TPB":(0,0o41),
 					  "TVB":(0,0o43),"TXA":(0,0o53),"XPB":(0,0o47),"XPX":(0,0o46)}
 					  
-IO_OPCODES = {"CEU":(0o13,0),"MIP":(0o13,0),"MOP":(0o13,0),"TEU":(0o13,0),"AIP":(0o1702,0),"AOP":(0o1700,0)}
+IO_OPCODES = {"CEU":(0o1300,0),"MIP":(0o1300,0),"MOP":(0o1300,0),"TEU":(0o1300,0),"AIP":(0o1702,1),"AOP":(0o1703,1)}
 
 INT_OPCODES ={"PID":(0o130601),"PIE":(0o130600)}
 
@@ -54,18 +55,16 @@ INT_OPCODES ={"PID":(0o130601),"PIE":(0o130600)}
 
 
 asmlineseq = [5,10,24]
+MODE_RELATIVE = 0
+MODE_ABSOLUTE = 1
+SEL_INT_MAX = 0xffff
+
 
 SYMBOLS = {}
 EXTERNAL_SYMBOLS = {}
-MODE_RELATIVE = 0
-MODE_ABSOLUTE = 1
-
 ADDR_MODE = MODE_ABSOLUTE
-
 CUR_ADDRESS = 0
 PROGRAM_LISTING = []
-
-SEL_INT_MAX = 0xffff
 
 def octprint(val,pad=6):
 	return "%06o" % (val & SEL_INT_MAX)
@@ -174,10 +173,11 @@ for lnum in range(len(ll)):
 		elif  len(chunkdat) == 1:
 			(label,) = chunkdat
 		
-		if label == '':
+		if label.strip() == '':
 			label = None
 		
 		indirect_bit = False
+		
 		if op != None:
 			if op.upper() == "DATA":
 				if comment != None:
@@ -216,17 +216,17 @@ for lnum in range(len(ll)):
 					SYMBOLS[label] = ("int",parsearg(addridx)()) #first pass only
 					continue
 					
-				elif op == "DAC":
+				elif op == "DAC": #not right
 					if len(addridx.split(",")) == 1:
 						val = addridx
 					elif len(addridx.split(",")) == 2:
 						(addr,idx) = addridx.split(",")
 						val = addr
-			
 					PROGRAM_LISTING.append((lnum,op, val,lambda x,y=val,: [parsearg(y)()]))
+					CUR_ADDRESS += 1
 					continue
 					
-				elif op == "EAC":
+				elif op == "EAC": #not right either
 					PROGRAM_LISTING.append((lnum,op, val,lambda x,y=addridx: [parsearg(y)()]))
 					continue
 					
@@ -236,14 +236,14 @@ for lnum in range(len(ll)):
 			elif op in MREF_OPCODES:
 				index_bit = 0
 				map_bit = 0
-				
 				opcode = (MREF_OPCODES[op] << 12) | (index_bit << 11) | (indirect_bit << 10) | (map_bit << 9)
 				PROGRAM_LISTING.append((lnum, op, opcode,lambda x,y=addridx.strip():[x|parsearg(y)()]))
 				CUR_ADDRESS += 1
 
 			elif op in AUGMENTED_OPCODES:
 				shift_count = 0
-				
+				if addridx:
+					shift_count = parsearg(addridx)()
 				opcode = (AUGMENTED_OPCODES[op][0] << 12) | (shift_count << 6) | AUGMENTED_OPCODES[op][1]
 				PROGRAM_LISTING.append((lnum, op, opcode,lambda x:[x]))
 				CUR_ADDRESS += 1
@@ -254,35 +254,31 @@ for lnum in range(len(ll)):
 				augment_code = 0
 				wait_bit = False
 				merge_bit = False
-
-
 				if len(addridx.split(",")) == 2:
 					(unit, wait) = addridx.split(",")
 					if wait == "W":
 						wait_bit = True
-
 				elif  len(addridx.split(",")) == 3:
 					(unit, wait, merge) = addridx.split(",")
 					if merge == "R":
 						merge_bit = True
-
-
-				opcode = (IO_OPCODES[op][0] << 6) |(merge_bit << 11) | (indirect_bit << 10) | (map_bit << 9)|(wait_bit << 6)
-
+					if wait == "W":
+						wait_bit = True
+				if IO_OPCODES[op][1]:
+					opcode = (IO_OPCODES[op][0] << 6) |(merge_bit << 11) | (indirect_bit << 10) | (map_bit << 9)|(wait_bit << 6)
+				else:
+					opcode = (IO_OPCODES[op][0] << 6) | (wait_bit << 6)
 				CUR_ADDRESS += 1
 				PROGRAM_LISTING.append((lnum, op, opcode,lambda x,y=unit:[x|parsearg(y)()]))
 
 			elif op in INT_OPCODES:
 				merge_bit = 0
 				augment_code = 0
-				
 				if addridx:
 					augment_code = parsearg(addridx)
-					
 				opcode = (INT_OPCODES[op] << 12) | augment_code
 				PROGRAM_LISTING.append((lnum, op, opcode,lambda x:[x]))
 				CUR_ADDRESS += 1
-
 				if map_bit == 0:
 					PROGRAM_LISTING.append((lnum,"DATA", 0,lambda x: [0])) #fixme
 					CUR_ADDRESS += 1
@@ -299,7 +295,6 @@ PROGRAM = {0:[]}
 CUR_ADDRESS = 0
 CUR_ORG = 0
 for lnum, op,opcode,finfunc in PROGRAM_LISTING:
-#	print(op)
 	if op in PSEUDO_OPCODES:
 		if op == "REL":
 			ADDR_MODE = MODE_RELATIVE
@@ -347,9 +342,34 @@ for lnum, op,opcode,finfunc in PROGRAM_LISTING:
 			CUR_ADDRESS += 1
 
 #print(len(PROGRAM))
+outbuff = []
+print("writing text")
+fn = "%s.S"  % ".".join(filename.split(".")[:-1])
+f = open(fn, "w")
 for o,pgm in PROGRAM.items():
 	if len(pgm):
-		print("load offset: 0x%04x [0o%06o]" %  (o,o))
+		outbuff.append("load offset: 0x%04x [0o%06o]" %  (o,o))
 		for o in range(len(pgm)):
-			print("\tLine#: %04d\t Addr: %s\tOCT: %s\tHEX: 0x%04x" % (pgm[o][0], pgm[o][1], octprint(pgm[o][2]),pgm[o][2] & 0xffff))
+			outbuff.append("\tLine#: %04d\t Addr: %s\tOCT: %s\tHEX: 0x%04x" % (pgm[o][0], pgm[o][1], octprint(pgm[o][2]),pgm[o][2] & 0xffff))
 
+for l in outbuff:
+	print("%s" % l)
+#	f.write("%s\n" % l)
+#f.close()
+
+print("writing binary")
+#fn = "%s.bin"  % ".".join(filename.split(".")[:-1])
+#f = open(fn, "w")
+#for o,pgm in PROGRAM.items():
+#	print(pgm)
+#	f.write((pgm[o][2] >> 8) &0xFF)
+#	f.write(pgm[o][2] & 0xFF)
+#f.close()
+
+
+
+fn = "%s.sym"  % ".".join(filename.split(".")[:-1])
+print("writing symbols %s" % fn)
+f = open(fn, "w")
+f.write(json.dumps(SYMBOLS))
+f.close()

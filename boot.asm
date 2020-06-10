@@ -11,7 +11,7 @@ STRT CEU  UNIT,W
      SAZ
      BRU  * +2
      BRU  * -3
-READ AIP  UNIT,W,R
+READ AIP  UNIT,W
      LSL  8
      AIP  UNIT,W,R
      STA* DAC1
