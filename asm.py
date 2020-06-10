@@ -45,7 +45,7 @@ AUGMENTED_OPCODES = { "ABA":(0,0o27),"ASC":(0,0o20),"CLA":(0,0o3), "CNS":(0,0o34
 					  "STB":(0,0o50),"TAB":(0,0o5), "TAZ":(0,0o52),"TBA":(0,0o4), "TBP":(0,0o40),"TBV":(0,0o42),"TOI":(0,0o35),"TPB":(0,0o41),
 					  "TVB":(0,0o43),"TXA":(0,0o53),"XPB":(0,0o47),"XPX":(0,0o46)}
 					  
-IO_OPCODES = {"CEU":(0o13,0),"MIP":(0o13,0),"MOP":(0o13,0),"TEU":(0o13,0),"AIP":(0o17,0o2),"AOP":(0o17,0o00)}
+IO_OPCODES = {"CEU":(0o13,0),"MIP":(0o13,0),"MOP":(0o13,0),"TEU":(0o13,0),"AIP":(0o1702,0),"AOP":(0o1700,0)}
 
 INT_OPCODES ={"PID":(0o130601),"PIE":(0o130600)}
 
@@ -208,13 +208,11 @@ for lnum in range(len(ll)):
 
 				elif op == "DATA":
 					for i in addridx.split(","):
-#						v = parsearg(i.strip())
 						CUR_ADDRESS += 1
 						PROGRAM_LISTING.append((lnum,op, 0x0,lambda x,y=i.strip(): [parsearg(y)()]))
 					continue
 
 				elif op == "EQU":
-#					val = parsearg(addridx)()
 					SYMBOLS[label] = ("int",parsearg(addridx)()) #first pass only
 					continue
 					
@@ -225,12 +223,10 @@ for lnum in range(len(ll)):
 						(addr,idx) = addridx.split(",")
 						val = addr
 			
-#					PROGRAM_LISTING.append((lnum,op, val,lambda x,y=val: [val()]))
 					PROGRAM_LISTING.append((lnum,op, val,lambda x,y=val,: [parsearg(y)()]))
 					continue
 					
 				elif op == "EAC":
-#					val = parsearg(addridx)()
 					PROGRAM_LISTING.append((lnum,op, val,lambda x,y=addridx: [parsearg(y)()]))
 					continue
 					
@@ -240,8 +236,6 @@ for lnum in range(len(ll)):
 			elif op in MREF_OPCODES:
 				index_bit = 0
 				map_bit = 0
-
-#				addr = parsearg(addridx.strip())
 				
 				opcode = (MREF_OPCODES[op] << 12) | (index_bit << 11) | (indirect_bit << 10) | (map_bit << 9)
 				PROGRAM_LISTING.append((lnum, op, opcode,lambda x,y=addridx.strip():[x|parsearg(y)()]))
@@ -273,7 +267,8 @@ for lnum in range(len(ll)):
 						merge_bit = True
 
 
-				opcode = (IO_OPCODES[op][0] << 12) | (IO_OPCODES[op][1] << 7) |(merge_bit << 11) | (indirect_bit << 10) | (map_bit << 9) |  (wait_bit << 6)
+				opcode = (IO_OPCODES[op][0] << 6) |(merge_bit << 11) | (indirect_bit << 10) | (map_bit << 9)|(wait_bit << 6)
+
 				CUR_ADDRESS += 1
 				PROGRAM_LISTING.append((lnum, op, opcode,lambda x,y=unit:[x|parsearg(y)()]))
 
