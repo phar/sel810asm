@@ -3,17 +3,17 @@
 ****************************
      ORG  '001000
 *i still dont know what CHAN actually is
-CHAN EQU  5
+CHAN EQU  '007673
 UNIT EQU  2
 STRT CEU  UNIT,W
      DATA '001000
      AIP  UNIT,W
      SAZ
-     BRU  * 2
+     BRU  * +2
      BRU  * -3
 READ AIP  UNIT,W,R
      LSL  8
-     API  UNIT,W,R
+     AIP  UNIT,W,R
      STA* DAC1
      SAZ
      IBS
