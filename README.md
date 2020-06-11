@@ -30,7 +30,8 @@ TODO:
 	DAC/EAC pseudo instructions do not work right at all
 	i still dont know what how the ** operator is supposed to work
 	i need to be able to import library symbols but i dont know them
-	
+	FORM,FDAT,BSS,BES,CALL, MOR,NAME,ZZZ,END,LIST,NOLS pseudo opcodes
+	macros are not supported	
 
 good stuff:
 	almost full compliance with the original 810 assembler so the manual can be used... kinda
