@@ -68,9 +68,22 @@ PROGRAM_LISTING = []
 
 def octprint(val,pad=6):
 	return "%06o" % (val & SEL_INT_MAX)
+	
+	
+
 
 def detectarg(argstring):
-	argstring = argstring.strip()
+	#'003003      #octal
+	#+'003003      #octal
+	#-'003003      #octal
+	#h5A			#hex
+	#+h5A			#hex
+	#-h5A			#hex
+	#*				#current address
+	#23.456B10, -B6, 12C0   #FIXED point
+	#22.33.44E0, .12345D2	#floating point data
+	#''help''		#PHA
+	#	argstring = argstring.strip()
 	bnext = 0
 	sign = 1
 	if argstring[bnext] == "-":
@@ -95,8 +108,14 @@ def detectarg(argstring):
 		lambdaparse = lambda x,y=bnext,s=sign : int(x[y:],16) * s
 		
 	elif argstring[bnext] == "*": #current
-		t = "ip"
-		lambdaparse = lambda x,y =CUR_ADDRESS,s=sign : y * s
+		bnext += 1
+		if argstring[bnext] == "*": #"to be filled in at runtime"
+			bnext += 1
+			t = "ip"
+			lambdaparse = lambda x : 0 #"This address is set during assembly to an abso1ute address of 00000."
+		else:
+			t = "ip"
+			lambdaparse = lambda x,y =CUR_ADDRESS,s=sign : y * s
 		
 	elif argstring[bnext:] in SYMBOLS:
 		t = "label"
@@ -126,23 +145,19 @@ def parsearg(argstring):
 		if argparts[i] != "":
 			if argparts[i] in ["+","-"]:
 				if argparts[i] == "-":
-#					print("minus")
 					mth = lambda x,y : x()-y()
 				else:
-#					print("plus")
 					mth = lambda x,y : x()+y()
 			else:
 				t,f = detectarg(argparts[i])
-#				print(f(argparts[i]))
 				if t == 'str':
 					return lambda x=f : x(argparts[i])
 				else:
-					total = lambda x=total, y = lambda x=f,y=argparts[i] : x(y): mth(x, y)
+					total = lambda x=total, y = lambda x=f,y=argparts[i]: x(y), z=mth: z(x, y)
 	return total
 
 
 filename = "boot.asm"
-
 f = open(filename)
 ll = f.readlines()
 #FIRST PASS
@@ -217,21 +232,25 @@ for lnum in range(len(ll)):
 					continue
 					
 				elif op == "DAC": #not right
+					idx = 0
+					daceac_bit = 1
 					if len(addridx.split(",")) == 1:
 						val = addridx
 					elif len(addridx.split(",")) == 2:
 						(addr,idx) = addridx.split(",")
 						val = addr
-					PROGRAM_LISTING.append((lnum,op, val,lambda x,y=val,: [parsearg(y)()]))
+						if int(idx):
+							idx = True
+					PROGRAM_LISTING.append((lnum,op, (idx<<7)|(daceac_bit<<5)|(indirect_bit<<6),lambda x,y=val,: [parsearg(y)() | x]))
 					CUR_ADDRESS += 1
 					continue
 					
 				elif op == "EAC": #not right either
-					PROGRAM_LISTING.append((lnum,op, val,lambda x,y=addridx: [parsearg(y)()]))
+					daceac_bit = 0
+					PROGRAM_LISTING.append((lnum,op, 0,lambda x,y=addridx: [parsearg(y)()]))
 					continue
 					
 				PROGRAM_LISTING.append((lnum,op, None ,[addridx]))
-
 			
 			elif op in MREF_OPCODES:
 				index_bit = 0
