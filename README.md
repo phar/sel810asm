@@ -37,4 +37,10 @@ good stuff:
 	works as a two-pass assembler (thank you lambda)
 	
 
+stuff to know:
+	the asm format is quite strict and based on the original punch card limitations
+labels can only be 4 characters, must start with a letter, the opcode column is also
+*always* 4 bytes wide before its arguments and arguments have a limited lengths and on line
+comments are part of the "line" and start at  offset 25 on each line and only the DATA
+pseudo opcode can span the two
 </pre>

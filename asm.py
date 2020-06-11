@@ -66,7 +66,7 @@ ADDR_MODE = MODE_ABSOLUTE
 CUR_ADDRESS = 0
 PROGRAM_LISTING = []
 
-def octprint(val,pad=6):
+def octprint(val):
 	return "%06o" % (val & SEL_INT_MAX)
 	
 	
