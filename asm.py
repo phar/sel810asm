@@ -35,7 +35,8 @@ address (NAME+ 4). The above may be extended to more than two operands ' (A - B 
 
 """
 
-PSEUDO_OPCODES = {"ABS":(),"REL":(),"ORG":(),"EQU":(),"DAC":(),"EAC":(),"DATA":(), "END":()}
+PSEUDO_OPCODES = {"ABS":(), "REL":(), "ORG":(),"EQU":(),"DAC":(),"EAC":(),"DATA":(),"END":(), "FORM":(),"FDAT":(),"BSS":(),"BES":(),
+			      "CALL":(),"MOR":(),"NAME":(),"ZZZ":(),"END":(),"LIST":(),"NOLS":(),"***":(),"MACR":(),"EMAC":()}
 
 MREF_OPCODES = {"LAA":0o1,"LBA":0o2,"STA":0o3,"STB":0o4,"AMA":0o5,"SMA":0o6,"MPY":0o7,"DIV":0o10,"BRU":0o11,"SPB":0o12,"IMS":0o14,"CMA":0o15,"AMB":0o16}
 
@@ -198,7 +199,7 @@ for lnum in range(len(ll)):
 				if comment != None:
 					addridx += comment
 				comment = None
-			elif "*" in op:
+			elif op[-1] == "*":
 				op = op.replace("*"," ") #indirect instruction
 				indirect_bit = True
 			op = op.strip()
@@ -221,6 +222,12 @@ for lnum in range(len(ll)):
 					elif ADDR_MODE == MODE_RELATIVE:
 						CUR_ADDRESS  += addr()
 
+				elif op in ["***", "ZZZ"]:
+					#fixme parse args
+					PROGRAM_LISTING.append((lnum,op, 0x0,lambda x: [0]))
+					continue
+
+
 				elif op == "DATA":
 					for i in addridx.split(","):
 						CUR_ADDRESS += 1
@@ -231,7 +238,7 @@ for lnum in range(len(ll)):
 					SYMBOLS[label] = ("int",parsearg(addridx)()) #first pass only
 					continue
 					
-				elif op == "DAC": #not right
+				elif op == "DAC": #not right fixme
 					idx = 0
 					daceac_bit = 1
 					if len(addridx.split(",")) == 1:
@@ -250,7 +257,7 @@ for lnum in range(len(ll)):
 					PROGRAM_LISTING.append((lnum,op, 0,lambda x,y=addridx: [parsearg(y)()]))
 					continue
 					
-				PROGRAM_LISTING.append((lnum,op, None ,[addridx]))
+				PROGRAM_LISTING.append((lnum,op, None ,[addridx])) #fail fixme
 			
 			elif op in MREF_OPCODES:
 				index_bit = 0
@@ -321,44 +328,43 @@ for lnum, op,opcode,finfunc in PROGRAM_LISTING:
 		elif op == "ABS":
 			ADDR_MODE = MODE_ABSOLUTE
 
+		elif op == "MOR": #we dont need to actually pause
+			pass
+
+		elif op in ["***", "zzz"]
+			for b in finfunc(opcode):
+				PROGRAM[CUR_ORG].append((lnum,CUR_ADDRESS,b))
+				CUR_ADDRESS += 1
+
+		elif op == "LIST": #list program output
+			pass
+
+		elif op == "NOLS": #nolist program output
+			pass
+
+		elif op == "NAME": #subroutine name
+			pass
+
 		elif op == "ORG":
 			addr = parsearg(finfunc[0])()
 			if ADDR_MODE == MODE_ABSOLUTE:
 				CUR_ORG = addr
 			elif ADDR_MODE == MODE_RELATIVE:
 				CUR_ORG += addr
+				
 			CUR_ADDRESS  = CUR_ORG
 			PROGRAM[CUR_ORG] = []
 
-		elif op == "DAC":
-			for b in finfunc(opcode):
-					PROGRAM[CUR_ORG].append((lnum,CUR_ADDRESS,b))
-					CUR_ADDRESS += 1
-		
-		elif op == "DATA":
+		elif (op in ["DAC" or "DATA" or "EAC"]:
 			for b in finfunc(opcode):
 				PROGRAM[CUR_ORG].append((lnum,CUR_ADDRESS,b))
 				CUR_ADDRESS += 1
-			
-	elif op in MREF_OPCODES:
-		for b in finfunc(opcode):
-			PROGRAM[CUR_ORG].append((lnum,CUR_ADDRESS,b))
-			CUR_ADDRESS += 1
-		
-	elif op in AUGMENTED_OPCODES:
-		for b in finfunc(opcode):
-			PROGRAM[CUR_ORG].append((lnum,CUR_ADDRESS,b))
-			CUR_ADDRESS += 1
-		
-	elif op in IO_OPCODES:
+					
+	elif op in MREF_OPCODES + AUGMENTED_OPCODES + IO_OPCODES + INT_OPCODES:
 		for b in finfunc(opcode):
 			PROGRAM[CUR_ORG].append((lnum,CUR_ADDRESS,b))
 			CUR_ADDRESS += 1
 
-	elif op in INT_OPCODES:
-		for b in finfunc(opcode):
-			PROGRAM[CUR_ORG].append((lnum,CUR_ADDRESS,b))
-			CUR_ADDRESS += 1
 
 #print(len(PROGRAM))
 outbuff = []
