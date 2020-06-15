@@ -1,5 +1,6 @@
 ************************************************
 * TEST EXTERNAL UNIT, TEU.CH '40 BITS 0-3      *
+*                                              *
 * LOCATION '6000                               *
 * PRESS SETPOINT EXECUTE SW AND PROGRAM        *
 * WILL PRINT$ UNTIL RELEASED.                  *
@@ -7,30 +8,32 @@
 * UNTIL RELEASED..                             *
 * PRESS WARN SW (HI TEMP) BESIDE WATCHDOG      *
 * RELAY AND PROGRAM WILL PRINT W.              *
-* PRESS OFF SW CHI TEMP SHUTDOWN> BESIDE WATCH
+* PRESS OFF SW CHI TEMP SHUTDOWN> BESIDE WATCH *
 * DOG RELAY AND PROGRAM WILL PRINT o.          *
 *                                              *
-* LOCATION '6200 *
+* LOCATION '6200                               *
 * CHECK SWITCH CONT.ACTS AND ASSOC. LOGIC      *
 * FOR NIXIE SWITCHES SS,6,7 AND SB.            *
 * PROGRAM WILL DISPLAY SW POSITION OF SS,6     *
 * AND S7 IN-ASSOC. NIXIE ONCE EACH SECOND.     *
 * TO DISPLAY ONE SWITCH ONLY, SET SENSE SW     *
 * CORRESPONDING TO NIXIE SWITCH NO.            *
-* T.0 DISPLAY SETPOINT SW SB, SET SENSE SW NO 8, ·
-* THE UNITS TENS AND HNDS WILL APPEAR IN RIGHT
+* TO DISPLAY SETPOINT SW SB, SET SENSE SW NO 8,* ·
+* THE UNITS TENS AND HNDS WILL APPEAR IN RIGHT *
 * NIXIE AND THOUS DIGIT WILL APPEAR IN CENTER  *
 * NIXIE                                        *
 *                                              *
-* LOCATION '6400 * * CHECK NIXIE TUBES         *
+* LOCATION '6400                               * 
+* CHECK NIXIE TUBES                            *
 * PROGRAM WILL DISPLAY SECONDS FROM CLOCK IN   *
 * NIXIES AT-ONE SECOND INTERVALS.              *
+*                                              *
 * LOCATION '6430                               *
 * INHIBIT ALARM TRANSMISSION TO CHICAGO        *
 * * PROG WILL TST FOR FUNCT 72 AND VALID TIME* *
 * <MAX 120) IN SW8. IF BOTH VALID IT WILL      *
 * TURN ON ALARM INHIBIT LIGHT AND DISPLAY      *
-* DELAY TIME IN NIX WITH FUNCT 72• TIME IS     *
+* DELAY TIME IN NIX WITH FUNCT 72. TIME IS     *
 * TESTED IN SEC RATHER THAN MINUTES.           *
 *                                              *
      REL
@@ -272,7 +275,7 @@ TIME TEU  '40
      STA  LOCD
      BRU  AGAN
 SUBX LAA  LOCB                      SUBT '146
-     SMA  =' 146
+     SMA  ='146
      STA  LOCB
      BRU  AOPP
 SUB6 LAA  LOCB                      SUBT 6
@@ -321,5 +324,5 @@ LOCC DATA 0
 LOCD DATA 0
 TBLA DATA ''REDUCE CNT IN SW8 TO 120,EXEC SET-PT''
 TBLB DATA ''SELECT FUNCT 72, EXECUTE SET POINT''
-TBLC DATA ''ALARMS WILL BE TRANSMITTED TO CHICAGO"
+TBLC DATA ''ALARMS WILL BE TRANSMITTED TO CHICAG''
      END
