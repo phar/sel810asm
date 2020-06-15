@@ -320,57 +320,6 @@ LOCB DATA 0
 LOCC DATA 0
 LOCD DATA 0
 TBLA DATA ''REDUCE CNT IN SW8 TO 120,EXEC SET-PT''
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 TBLB DATA ''SELECT FUNCT 72, EXECUTE SET POINT''
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 TBLC DATA ''ALARMS WILL BE TRANSMITTED TO CHICAGO"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
      END
