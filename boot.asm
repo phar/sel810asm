@@ -21,12 +21,4 @@ READ AIP  UNIT,W
      BRU  READ
 DAC1 DAC  CHAN-2,1
 DAC2 DAC  CHAN
-
-
-* wait macro
-WAIT MACR
-@1   NOP
-     NOP
-     NOP
-	 BRU @1
-     EMAC
+*     LAA  ='000001

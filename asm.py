@@ -56,8 +56,8 @@ INT_OPCODES ={"PID":(0o130601),"PIE":(0o130600)}
 
 
 asmlineseq = [5,10,24]
-MODE_RELATIVE = 0
-MODE_ABSOLUTE = 1
+MODE_RELATIVE = True
+MODE_ABSOLUTE = False
 SEL_INT_MAX = 0xffff
 
 
@@ -66,6 +66,7 @@ EXTERNAL_SYMBOLS = {}
 ADDR_MODE = MODE_ABSOLUTE
 CUR_ADDRESS = 0
 PROGRAM_LISTING = []
+CONSTANTS = {}
 
 def octprint(val):
 	return "%06o" % (val & SEL_INT_MAX)
@@ -84,9 +85,15 @@ def detectarg(argstring):
 	#23.456B10, -B6, 12C0   #FIXED point
 	#22.33.44E0, .12345D2	#floating point data
 	#''help''		#PHA
-	#	argstring = argstring.strip()
 	bnext = 0
 	sign = 1
+	literal = False
+	if argstring[bnext] == "=":
+		bnext += 1
+		literal = True
+		if argstring[bnext:] in CONSTANTS:
+			lambdaparse = lambda x,y=argstring[bnext:] : CONSTANTS[y]
+
 	if argstring[bnext] == "-":
 		sign = -1
 		bnext += 1
@@ -107,7 +114,6 @@ def detectarg(argstring):
 		bnext += 1
 		t = "hex"
 		lambdaparse = lambda x,y=bnext,s=sign : int(x[y:],16) * s
-		
 	elif argstring[bnext] == "*": #current
 		bnext += 1
 		if argstring[bnext] == "*": #"to be filled in at runtime"
@@ -136,8 +142,6 @@ def detectarg(argstring):
 	return (t,lambdaparse)
 	
 	
-
-
 def parsearg(argstring):
 	argparts = re.split("(\+|\-)",argstring)
 	total = lambda :0
@@ -218,13 +222,25 @@ for lnum in range(len(ll)):
 				elif op == "ORG":
 					addr = parsearg(addridx)
 					if ADDR_MODE == MODE_ABSOLUTE:
-						CUR_ADDRESS  = addr()
-					elif ADDR_MODE == MODE_RELATIVE:
-						CUR_ADDRESS  += addr()
+						CUR_ADDRESS  = addr() #this is right
+						
+					elif ADDR_MODE == MODE_RELATIVE: #When the assembly is in relative mode, this address will be added to the start
+													#load address {assigned when loading the program into memory) in order to specify the
+													#location of the next instruction.
+						CUR_ADDRESS  += addr()#not right
 
 				elif op in ["***", "ZZZ"]:
 					#fixme parse args
-					PROGRAM_LISTING.append((lnum,op, 0x0,lambda x: [0]))
+					if len(addridx.split(",")) == 1:
+						val = addridx
+						
+					elif len(addridx.split(",")) == 2:
+						(addr,idx) = addridx.split(",")
+						val = addr
+						if int(idx):
+							idx = True
+							
+					PROGRAM_LISTING.append((lnum,op, (indirect_bit<<14),lambda x,y=val:  [parsearg(y)() | x]))
 					continue
 
 
@@ -239,31 +255,52 @@ for lnum in range(len(ll)):
 					continue
 					
 				elif op == "DAC": #not right fixme
-					idx = 0
-					daceac_bit = 1
+					idx = False
+					daceac_bit = False
+
 					if len(addridx.split(",")) == 1:
 						val = addridx
+						
 					elif len(addridx.split(",")) == 2:
 						(addr,idx) = addridx.split(",")
 						val = addr
 						if int(idx):
 							idx = True
-					PROGRAM_LISTING.append((lnum,op, (idx<<7)|(daceac_bit<<5)|(indirect_bit<<6),lambda x,y=val,: [parsearg(y)() | x]))
+					PROGRAM_LISTING.append((lnum,op,(idx<<15)| (daceac_bit<<14) | (indirect_bit<<13),lambda x,y=val,: [parsearg(y)() | x]))
 					CUR_ADDRESS += 1
 					continue
 					
 				elif op == "EAC": #not right either
-					daceac_bit = 0
-					PROGRAM_LISTING.append((lnum,op, 0,lambda x,y=addridx: [parsearg(y)()]))
+					daceac_bit = True
+					idx  = False
+					
+					if len(addridx.split(",")) == 1:
+						val = addridx
+						
+					elif len(addridx.split(",")) == 2:
+						(addr,idx) = addridx.split(",")
+						val = addr
+						if int(idx):
+							idx = True
+					PROGRAM_LISTING.append((lnum,op,(idx<<15)|(daceac_bit<<14) | (indirect_bit<<14),lambda x,y=addridx: [parsearg(y)()]))
 					continue
 					
 				PROGRAM_LISTING.append((lnum,op, None ,[addridx])) #fail fixme
 			
 			elif op in MREF_OPCODES:
-				index_bit = 0
-				map_bit = 0
+				index_bit = False
+				map_bit = False
+				literal_address = False
+
 				opcode = (MREF_OPCODES[op] << 12) | (index_bit << 11) | (indirect_bit << 10) | (map_bit << 9)
-				PROGRAM_LISTING.append((lnum, op, opcode,lambda x,y=addridx.strip():[x|parsearg(y)()]))
+
+				if addridx.strip()[0] == '=':
+					literaladdress = True
+					CONSTANTS[parsearg(addridx)()] = 0 #we'll fill these in later
+					PROGRAM_LISTING.append((lnum, op, opcode,lambda x,y=addridx.strip()[1:]:[x | CONSTANTS[parsearg(y)()]]))
+				else:
+					opcode = (MREF_OPCODES[op] << 12) | (index_bit << 11) | (indirect_bit << 10) | (map_bit << 9)
+					PROGRAM_LISTING.append((lnum, op, opcode,lambda x,y=addridx.strip():[x|parsearg(y)()]))
 				CUR_ADDRESS += 1
 
 			elif op in AUGMENTED_OPCODES:
@@ -291,7 +328,7 @@ for lnum in range(len(ll)):
 					if wait == "W":
 						wait_bit = True
 				if IO_OPCODES[op][1]:
-					opcode = (IO_OPCODES[op][0] << 6) |(merge_bit << 11) | (indirect_bit << 10) | (map_bit << 9)|(wait_bit << 6)
+					opcode = (IO_OPCODES[op][0] << 6) | (merge_bit << 11) | (indirect_bit << 10) | (map_bit << 9) | (wait_bit << 6)
 				else:
 					opcode = (IO_OPCODES[op][0] << 6) | (wait_bit << 6)
 				CUR_ADDRESS += 1
@@ -315,6 +352,12 @@ for lnum in range(len(ll)):
 				print("unhandled opcode [%s] on %s:%d in first pass.. you should fix that.. fatal" % (op,filename,lnum))
 				exit()
 
+print("assigning constants to end of program memory")
+o = 0
+for c in CONSTANTS: #assign literals to memory at the end of the program
+	CONSTANTS[c] = CUR_ADDRESS + o
+	o+=1;
+	PROGRAM_LISTING.append((0,"DATA", c ,lambda x: [x]))
 
 #second pass
 PROGRAM = {0:[]}
@@ -331,7 +374,7 @@ for lnum, op,opcode,finfunc in PROGRAM_LISTING:
 		elif op == "MOR": #we dont need to actually pause
 			pass
 
-		elif op in ["***", "zzz"]
+		elif op in ["***", "zzz"]:
 			for b in finfunc(opcode):
 				PROGRAM[CUR_ORG].append((lnum,CUR_ADDRESS,b))
 				CUR_ADDRESS += 1
@@ -355,12 +398,12 @@ for lnum, op,opcode,finfunc in PROGRAM_LISTING:
 			CUR_ADDRESS  = CUR_ORG
 			PROGRAM[CUR_ORG] = []
 
-		elif (op in ["DAC" or "DATA" or "EAC"]:
+		elif op in ["DAC","DATA","EAC"]:
 			for b in finfunc(opcode):
 				PROGRAM[CUR_ORG].append((lnum,CUR_ADDRESS,b))
 				CUR_ADDRESS += 1
 					
-	elif op in MREF_OPCODES + AUGMENTED_OPCODES + IO_OPCODES + INT_OPCODES:
+	elif op in MREF_OPCODES or op in AUGMENTED_OPCODES or op in IO_OPCODES or op in INT_OPCODES:
 		for b in finfunc(opcode):
 			PROGRAM[CUR_ORG].append((lnum,CUR_ADDRESS,b))
 			CUR_ADDRESS += 1
