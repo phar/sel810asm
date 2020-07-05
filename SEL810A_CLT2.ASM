@@ -205,7 +205,7 @@ RSET LAA  ='100000
      CMA  ='440                     TIME MORE THAN 120
      BRU  *+1
      BRU  *+3                       ='440 OR 120
-EROR SPB  SORY ·
+EROR SPB  SORY
      BRU  RSET
      LAA  ='101000
      AOP  '43,W                     RSET ST PT-TRN ON LIGHT

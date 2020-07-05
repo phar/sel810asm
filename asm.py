@@ -305,7 +305,7 @@ for lnum in range(len(ll)):
 
 			elif op in AUGMENTED_OPCODES:
 				shift_count = 0
-				if addridx:
+				if addridx and addridx.strip() != "":
 					shift_count = parsearg(addridx)()
 				opcode = (AUGMENTED_OPCODES[op][0] << 12) | (shift_count << 6) | AUGMENTED_OPCODES[op][1]
 				PROGRAM_LISTING.append((lnum, op, opcode,lambda x:[x]))
