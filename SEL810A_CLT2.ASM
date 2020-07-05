@@ -121,7 +121,7 @@ BEGN AIP  '40,W                     INPT SEC
 STPT CLA 
      AOP  '40,W                     CLR LEFT NIX
      AIP  '45,W                     INPT S8 SETPT SW
-     AQP  '42,W                     DSPLA UTH S8 IN R NIX
+     AOP  '42,W                     DSPLA UTH S8 IN R NIX
      RSL  12
      AOP  '41,W                     DSPLA THOU OF S8 IN C NIX
      BRU  BEGN
@@ -183,7 +183,7 @@ HOME IMS  LOCC
      DATA '100000                   SET PT EXEC
      BRU  *+2
      BRU  HOME+2
-     A.IP '44,W                     SW 7
+     AIP '44,W                     SW 7
      LSL  8                         SHIFT SW6 OFF
      CMA  ='71000                   SW7=FUNCT 72
      BRU  *+2
