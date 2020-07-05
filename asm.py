@@ -45,7 +45,7 @@ AUGMENTED_OPCODES = { "ABA":(0,0o27),"ASC":(0,0o20),"CLA":(0,0o3), "CNS":(0,0o34
 					  "LSA":(0,0o11),"LSL":(0,0o16),"NEG":(0,0o2), "NOP":(0,0o33),"OBA":(0,0o30),"OVS":(0,0o37),"RNA":(0,0o1), "RSA":(0,0o10),
 					  "RSL":(0,0o15),"SAN":(0,0o23),"SAP":(0,0o24),"SAS":(0,0o21),"SAZ":(0,0o22),"SNO":(0,0o32),"SOF":(0,0o25),"STX":(0,0o44),
 					  "STB":(0,0o50),"TAB":(0,0o5), "TAZ":(0,0o52),"TBA":(0,0o4), "TBP":(0,0o40),"TBV":(0,0o42),"TOI":(0,0o35),"TPB":(0,0o41),
-					  "TVB":(0,0o43),"TXA":(0,0o53),"XPB":(0,0o47),"XPX":(0,0o46)}
+					  "TVB":(0,0o43),"TXA":(0,0o53),"XPB":(0,0o47),"XPX":(0,0o46),"SNS":(0o13,0o4)}
 					  
 IO_OPCODES = {"CEU":(0o1300,0),"MIP":(0o1300,0),"MOP":(0o1300,0),"TEU":(0o1300,0),"AIP":(0o1702,1),"AOP":(0o1703,1)}
 
@@ -69,7 +69,7 @@ PROGRAM_LISTING = []
 CONSTANTS = {}
 
 def octprint(val):
-	return "%06o" % (val & SEL_INT_MAX)
+	return "%08o" % (val & SEL_INT_MAX)
 	
 	
 
@@ -329,10 +329,11 @@ for lnum in range(len(ll)):
 						wait_bit = True
 				if IO_OPCODES[op][1]:
 					opcode = (IO_OPCODES[op][0] << 6) | (merge_bit << 11) | (indirect_bit << 10) | (map_bit << 9) | (wait_bit << 6)
+					PROGRAM_LISTING.append((lnum, op, opcode,lambda x,y=unit:[x|parsearg(y)()]))
 				else:
 					opcode = (IO_OPCODES[op][0] << 6) | (wait_bit << 6)
+					PROGRAM_LISTING.append((lnum, op, opcode,lambda x,y=unit:[x|parsearg(y)()]))
 				CUR_ADDRESS += 1
-				PROGRAM_LISTING.append((lnum, op, opcode,lambda x,y=unit:[x|parsearg(y)()]))
 
 			elif op in INT_OPCODES:
 				merge_bit = 0

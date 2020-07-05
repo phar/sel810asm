@@ -18,7 +18,7 @@
 * AND S7 IN-ASSOC. NIXIE ONCE EACH SECOND.     *
 * TO DISPLAY ONE SWITCH ONLY, SET SENSE SW     *
 * CORRESPONDING TO NIXIE SWITCH NO.            *
-* TO DISPLAY SETPOINT SW SB, SET SENSE SW NO 8,* ·
+* TO DISPLAY SETPOINT SW SB, SET SENSE SW NO 8,* 
 * THE UNITS TENS AND HNDS WILL APPEAR IN RIGHT *
 * NIXIE AND THOUS DIGIT WILL APPEAR IN CENTER  *
 * NIXIE                                        *
@@ -40,7 +40,7 @@
      SPB  CRLF                      PRINT 60 CHAR PER LINE
      LAA  ='177717
      STA  CNTR
-STRT NOP
+STRT NOP 
      TEU  '40                       SET POINT EXEC
      DATA '100000
      BRU  SETP
@@ -71,7 +71,7 @@ RECL LAA  = '151000                 PRINT R
      MOP  '43,W
      DATA '4000                     RESET ALARM RECALL
      BRU  STRT
-AOP  HLT
+AOP  HLT 
      IMS  CNTA                      COUNTER F/DLY
      BRU  *+l                       CHANGE TO BRU -1 F/DLY
      AOP  1, W
@@ -81,7 +81,7 @@ AOP  HLT
      STA  CNTR
      SPB  CRLF
      BRU* AOP
-CRLF HLT
+CRLF HLT 
      MOP  1,W
      DATA '106400
      MOP  1,W
@@ -118,14 +118,14 @@ BEGN AIP  '40,W                     INPT SEC
      RSL  8
      AOP  '42, W                    DISPLA S7 IN R NIX
      BRU  BEGN
-STPT CLA
+STPT CLA 
      AOP  '40,W                     CLR LEFT NIX
      AIP  '45,W                     INPT S8 SETPT SW
      AQP  '42,W                     DSPLA UTH S8 IN R NIX
      RSL  12
      AOP  '41,W                     DSPLA THOU OF S8 IN C NIX
      BRU  BEGN
-LEFT CLA
+LEFT CLA 
      AOP  '41,W                     CLR C NIX
      AOP  '42,W                     CLR R NIX
      AIP  '43,W                     INPT 55
@@ -133,7 +133,7 @@ LEFT CLA
      RSL  4
      AOP  '40,W                     OUPT TO L NIX
      BRU  BEGN
-CNIX CLA
+CNIX CLA 
      AOP  '40,W                     CLR L NIX
      AOP  '42,W                     CLR R NIX
      AIP  '44,W                     INPT S6
@@ -142,7 +142,7 @@ CNIX CLA
      BRU  BEGN
 RITE CLA
      AOP  '40,W                     CLR L NIX
-     AOP  '41,W                     CLR C N1X
+     AOP  '41,W                     CLR C NIX
      AIP  '44,W                     INPT S7
      LSL  8
      RSL  8
@@ -174,7 +174,7 @@ TEMP DATA 0
 DATA DATA 0
      **** ********                  ***********************
      ORG  '430
-     CLA
+     CLA 
      STA  LOCA
      BRU  RSET
 HOME IMS  LOCC
@@ -191,7 +191,7 @@ HOME IMS  LOCC
      SPB  FNCT                      WRONG FNCT NO
 RSET LAA  ='100000
      AOP  '43,W                     RESET SET PT
-     CLA
+     CLA 
      AOP  '40,W
      AOP  '41,W                     CLR NIX
      AOP  '42,W                     CLR NIX
@@ -214,7 +214,7 @@ EROR SPB  SORY ·
 AGAN LAA  LOCB
      SMA  =1                        SUBT 1 F/CNT MIKE:is this right?
      STA  LOCB
-     SAZ
+     SAZ 
      BRU  *+2
      BRU  OFFF                      TRN OFF LIGHT
      LSL  8
@@ -225,14 +225,14 @@ AGAN LAA  LOCB
      CMA  ='170000                  CK F/INVALID BCD
      BRU  *+2
      BRU  SUB6                      SUBT 6
-AOPP NOP
+AOPP NOP 
      AlP  '43,W                     LFT NIX
      LSL  8
      SMA  ='071000
-     SAZ
+     SAZ 
      BRU  *+2
      BRU  A40
-     CLA
+     CLA 
      AOP  '40,W                     CLR NIX
      BRU  *+3
 A40  LAA  LOCB
@@ -240,10 +240,10 @@ A40  LAA  LOCB
      AIP  '44,W                     CNTR NIX
      RSL  8
      SMA  ='162
-     SAZ
+     SAZ 
      BRU  *+2
      BRU  A41
-     CLA
+     CLA 
      AOP  '41,W                     CLR NIX
      BRU  *+3
 A41  LAA  LOCB
@@ -254,13 +254,13 @@ A41  LAA  LOCB
      SAZ
      BRU  *+2
      BRU  A42
-     CLA
+     CLA 
      AOP  '42,W                     CLR NIX
      BRU  *+3
 A42  LAA  LOCB
      AOP  '42,W
      LAA  LOCA
-     SAZ
+     SAZ 
      BRU  TIME
      AIP  '40,W                     INPT SEC
      STA  LOCD
@@ -302,18 +302,18 @@ FNCT HLT                            SW 7 NOT 72
      LBA  =-17
      LAA  TBLB+17,1
      SPB  TTY
-     IBS
+     IBS 
      BRU  *-3
      BRU* FNCT
-RESM HLT
+RESM HLT 
      SPB  CRLF
      LBA  =-19
      LAA  TBLC+19,1
      SPB  TTY
-     IBS
+     IBS 
      BRU  *-3
      BRU* RESM
-TTY  HLT
+TTY  HLT 
      AOP  1,W
      LSL  8
      AOP  1,W

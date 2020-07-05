@@ -35,7 +35,8 @@ TODO:
 
 good stuff:
 	almost full compliance with the original 810 assembler so the manual can be used... kinda
-	works as a two-pass assembler (thank you lambda)
+	works as a two-pass assembler (thank you lambda), though I currently dont support relocatable 
+	format.
 	
 
 stuff to know:
