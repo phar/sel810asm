@@ -162,7 +162,7 @@ def parsearg(argstring):
 	return total
 
 
-filename = "boot.asm"
+filename = "SEL810A_CLT2.ASM"
 f = open(filename)
 ll = f.readlines()
 #FIRST PASS
@@ -332,7 +332,7 @@ for lnum in range(len(ll)):
 					PROGRAM_LISTING.append((lnum, op, opcode,lambda x,y=unit:[x|parsearg(y)()]))
 				else:
 					opcode = (IO_OPCODES[op][0] << 6) | (wait_bit << 6)
-					PROGRAM_LISTING.append((lnum, op, opcode,lambda x,y=unit:[x|parsearg(y)()]))
+					PROGRAM_LISTING.append((lnum, op, opcode,lambda x:[x|parsearg(y)()]))
 				CUR_ADDRESS += 1
 
 			elif op in INT_OPCODES:

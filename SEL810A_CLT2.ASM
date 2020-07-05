@@ -36,7 +36,7 @@
 * DELAY TIME IN NIX WITH FUNCT 72. TIME IS     *
 * TESTED IN SEC RATHER THAN MINUTES.           *
 *                                              *
-     REL
+     REL 
      SPB  CRLF                      PRINT 60 CHAR PER LINE
      LAA  ='177717
      STA  CNTR
@@ -66,7 +66,7 @@ OFF  LAA  =' 147400                 PRINT 0
 WARN LAA  ='153400                  PRINT W
      SPB  AOP
      BRU  STRT
-RECL LAA  = '151000                 PRINT R
+RECL LAA  ='151000                  PRINT R
      SPB  AOP
      MOP  '43,W
      DATA '4000                     RESET ALARM RECALL
