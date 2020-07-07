@@ -71,7 +71,7 @@ PROGRAM_LISTING = []
 CONSTANTS = {}
 
 def octprint(val):
-	return "%08o" % (val & SEL_INT_MAX)
+	return "%08o" % (val)
 	
 	
 
@@ -119,14 +119,18 @@ def detectarg(argstring):
 		lambdaparse = lambda x,y=bnext,s=sign : int(x[y:],16) * s
 	elif argstring[bnext] == "*": #current
 		bnext += 1
-		if argstring[bnext] == "*": #"to be filled in at runtime"
-			bnext += 1
-			t = "ip"
-			lambdaparse = lambda x : 0 #"This address is set during assembly to an abso1ute address of 00000."
+		if bnext < len(argstring):
+			if argstring[bnext] == "*": #"to be filled in at runtime"
+				bnext += 1
+				t = "ip"
+				lambdaparse = lambda x : 0 #"This address is set during assembly to an abso1ute address of 00000."
+			else:
+				t = "ip"
+				lambdaparse = lambda x,y =CUR_ADDRESS,s=sign : y * s
 		else:
 			t = "ip"
 			lambdaparse = lambda x,y =CUR_ADDRESS,s=sign : y * s
-		
+
 	elif argstring[bnext:] in SYMBOLS:
 		t = "label"
 		lambdaparse = lambda x,y=bnext,s=sign  : SYMBOLS[x[y:]][1] * s
@@ -198,6 +202,8 @@ for lnum in range(len(ll)):
 		
 		if label.strip() == '':
 			label = None
+		else:
+			label = label.strip()
 		
 		indirect_bit = False
 		
@@ -205,6 +211,7 @@ for lnum in range(len(ll)):
 			if op.upper() == "DATA":
 				if comment != None:
 					addridx += comment
+					addridx = addridx.split(" ")[0] #this is a bit of a hack for a special case of data with a comment, but not a long line
 				comment = None
 			elif op[-1] == "*":
 				op = op.replace("*"," ") #indirect instruction
@@ -344,6 +351,7 @@ for lnum in range(len(ll)):
 				augment_code = 0
 				wait_bit = False
 				merge_bit = False
+				unit = 0
 				if len(addridx.split(",")) == 2:
 					(unit, wait) = addridx.split(",")
 					if wait == "W":
@@ -359,7 +367,8 @@ for lnum in range(len(ll)):
 					PROGRAM_LISTING.append((lnum, op, opcode,lambda x,y=unit:[x|parsearg(y)()]))
 				else:
 					opcode = (IO_OPCODES[op][0] << 6) | (wait_bit << 6)
-					PROGRAM_LISTING.append((lnum, op, opcode,lambda x:[x|parsearg(y)()]))
+#					PROGRAM_LISTING.append((lnum, op, opcode,lambda x,y=unit:[x|parsearg(y)()]))
+					PROGRAM_LISTING.append((lnum, op, opcode,lambda x,y=unit:[y]))
 				CUR_ADDRESS += 1
 
 			elif op in INT_OPCODES:
@@ -385,6 +394,7 @@ for lnum in range(len(ll)):
 			else:
 				print("unhandled opcode [%s] on %s:%d in first pass.. you should fix that.. fatal" % (op,filename,lnum+1))
 				exit()
+
 
 print("assigning constants to end of program memory")
 o = 0
@@ -445,7 +455,8 @@ for lnum, op,opcode,finfunc in PROGRAM_LISTING:
 		except Exception as  err:
 			print("%s:%d generated the following error" % (filename,lnum+1))
 			traceback.print_exc()
-
+			sys.exit()
+			
 #print(len(PROGRAM))
 outbuff = []
 print("writing text")
