@@ -226,7 +226,7 @@ for lnum in range(len(ll)):
 					try:
 						addr = parsearg(addridx)
 					except Exception as  err:
-						print("****\n%s:%d generated the following error\n***" % (filename,lnum))
+						print("****\n%s:%d generated the following error\n***" % (filename,lnum+1))
 						traceback.print_exc()
 						sys.exit(-1)
 
@@ -263,7 +263,7 @@ for lnum in range(len(ll)):
 					try:
 						SYMBOLS[label] = ("int",parsearg(addridx)()) #first pass only
 					except Exception as  err:
-						print("****\n%s:%d generated the following error\n***" % (filename,lnum))
+						print("****\n%s:%d generated the following error\n***" % (filename,lnum+1))
 						traceback.print_exc()
 						sys.exit(-1)
 
@@ -314,7 +314,7 @@ for lnum in range(len(ll)):
 					try:
 						CONSTANTS[parsearg(addridx)()] = 0 #we'll fill these in later
 					except Exception as  err:
-						print("****\n%s:%d generated the following error\n***" % (filename,lnum))
+						print("****\n%s:%d generated the following error\n***" % (filename,lnum+1))
 						traceback.print_exc()
 						sys.exit(-1)
 
@@ -330,7 +330,7 @@ for lnum in range(len(ll)):
 					try:
 						shift_count = parsearg(addridx)()
 					except Exception as  err:
-						print("****\n%s:%d generated the following error\n***" % (filename,lnum))
+						print("****\n%s:%d generated the following error\n***" % (filename,lnum+1))
 						traceback.print_exc()
 						sys.exit(-1)
 
@@ -369,7 +369,7 @@ for lnum in range(len(ll)):
 					try:
 						augment_code = parsearg(addridx)
 					except Exception as  err:
-						print("****\%s:%d generated the following error" % (filename,lnum))
+						print("****\%s:%d generated the following error" % (filename,lnum+1))
 						traceback.print_exc()
 						sys.exit(-1)
 
@@ -383,7 +383,7 @@ for lnum in range(len(ll)):
 					pass
 
 			else:
-				print("unhandled opcode [%s] on %s:%d in first pass.. you should fix that.. fatal" % (op,filename,lnum))
+				print("unhandled opcode [%s] on %s:%d in first pass.. you should fix that.. fatal" % (op,filename,lnum+1))
 				exit()
 
 print("assigning constants to end of program memory")
@@ -443,7 +443,7 @@ for lnum, op,opcode,finfunc in PROGRAM_LISTING:
 				PROGRAM[CUR_ORG].append((lnum,CUR_ADDRESS,b))
 				CUR_ADDRESS += 1
 		except Exception as  err:
-			print("line %d generated the following error" % lnum)
+			print("%s:%d generated the following error" % (filename,lnum+1))
 			traceback.print_exc()
 
 #print(len(PROGRAM))
