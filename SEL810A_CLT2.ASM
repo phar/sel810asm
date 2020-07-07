@@ -226,7 +226,7 @@ AGAN LAA  LOCB
      BRU  *+2
      BRU  SUB6                      SUBT 6
 AOPP NOP 
-     AlP  '43,W                     LFT NIX
+     AIP  '43,W                     LFT NIX
      LSL  8
      SMA  ='071000
      SAZ 
@@ -279,7 +279,7 @@ SUBX LAA  LOCB                      SUBT '146
      STA  LOCB
      BRU  AOPP
 SUB6 LAA  LOCB                      SUBT 6
-     SMA  =6
+     SMA  ='6
      STA  LOCB
      BRU  AOPP
 OFFF CLA                            TRN OFF LITE, CLR NIX

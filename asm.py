@@ -1,6 +1,8 @@
 import struct
 import re
 import json
+import traceback
+import sys
 
 """
 rel 4
@@ -88,6 +90,7 @@ def detectarg(argstring):
 	bnext = 0
 	sign = 1
 	literal = False
+	
 	if argstring[bnext] == "=":
 		bnext += 1
 		literal = True
@@ -220,7 +223,13 @@ for lnum in range(len(ll)):
 					ADDR_MODE = MODE_ABSOLUTE
 					
 				elif op == "ORG":
-					addr = parsearg(addridx)
+					try:
+						addr = parsearg(addridx)
+					except Exception as  err:
+						print("****\n%s:%d generated the following error\n***" % (filename,lnum))
+						traceback.print_exc()
+						sys.exit(-1)
+
 					if ADDR_MODE == MODE_ABSOLUTE:
 						CUR_ADDRESS  = addr() #this is right
 						
@@ -251,7 +260,13 @@ for lnum in range(len(ll)):
 					continue
 
 				elif op == "EQU":
-					SYMBOLS[label] = ("int",parsearg(addridx)()) #first pass only
+					try:
+						SYMBOLS[label] = ("int",parsearg(addridx)()) #first pass only
+					except Exception as  err:
+						print("****\n%s:%d generated the following error\n***" % (filename,lnum))
+						traceback.print_exc()
+						sys.exit(-1)
+
 					continue
 					
 				elif op == "DAC": #not right fixme
@@ -296,7 +311,13 @@ for lnum in range(len(ll)):
 
 				if addridx.strip()[0] == '=':
 					literaladdress = True
-					CONSTANTS[parsearg(addridx)()] = 0 #we'll fill these in later
+					try:
+						CONSTANTS[parsearg(addridx)()] = 0 #we'll fill these in later
+					except Exception as  err:
+						print("****\n%s:%d generated the following error\n***" % (filename,lnum))
+						traceback.print_exc()
+						sys.exit(-1)
+
 					PROGRAM_LISTING.append((lnum, op, opcode,lambda x,y=addridx.strip()[1:]:[x | CONSTANTS[parsearg(y)()]]))
 				else:
 					opcode = (MREF_OPCODES[op] << 12) | (index_bit << 11) | (indirect_bit << 10) | (map_bit << 9)
@@ -306,7 +327,13 @@ for lnum in range(len(ll)):
 			elif op in AUGMENTED_OPCODES:
 				shift_count = 0
 				if addridx and addridx.strip() != "":
-					shift_count = parsearg(addridx)()
+					try:
+						shift_count = parsearg(addridx)()
+					except Exception as  err:
+						print("****\n%s:%d generated the following error\n***" % (filename,lnum))
+						traceback.print_exc()
+						sys.exit(-1)
+
 				opcode = (AUGMENTED_OPCODES[op][0] << 12) | (shift_count << 6) | AUGMENTED_OPCODES[op][1]
 				PROGRAM_LISTING.append((lnum, op, opcode,lambda x:[x]))
 				CUR_ADDRESS += 1
@@ -339,7 +366,13 @@ for lnum in range(len(ll)):
 				merge_bit = 0
 				augment_code = 0
 				if addridx:
-					augment_code = parsearg(addridx)
+					try:
+						augment_code = parsearg(addridx)
+					except Exception as  err:
+						print("****\%s:%d generated the following error" % (filename,lnum))
+						traceback.print_exc()
+						sys.exit(-1)
+
 				opcode = (INT_OPCODES[op] << 12) | augment_code
 				PROGRAM_LISTING.append((lnum, op, opcode,lambda x:[x]))
 				CUR_ADDRESS += 1
@@ -405,10 +438,13 @@ for lnum, op,opcode,finfunc in PROGRAM_LISTING:
 				CUR_ADDRESS += 1
 					
 	elif op in MREF_OPCODES or op in AUGMENTED_OPCODES or op in IO_OPCODES or op in INT_OPCODES:
-		for b in finfunc(opcode):
-			PROGRAM[CUR_ORG].append((lnum,CUR_ADDRESS,b))
-			CUR_ADDRESS += 1
-
+		try:
+			for b in finfunc(opcode):
+				PROGRAM[CUR_ORG].append((lnum,CUR_ADDRESS,b))
+				CUR_ADDRESS += 1
+		except Exception as  err:
+			print("line %d generated the following error" % lnum)
+			traceback.print_exc()
 
 #print(len(PROGRAM))
 outbuff = []
