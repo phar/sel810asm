@@ -13,3 +13,7 @@ if __name__ == '__main__':
 	
 	tape.write_contents(filecontents)
 
+
+0000 1011 0000 1010 0000
+
+0000 0000 0010 1100 0000

@@ -322,9 +322,10 @@ for lnum in range(len(ll)):
 			
 			elif op in MREF_OPCODES:
 				addr = addridx
+				if indirect_bit:
+					i_flag = True
 				if addr[0] == "=":
 					x_flag = True
-#					print(addr[1:])
 					PROGRAM_LISTING.append((lnum,op,(MREF_OPCODES[op] << 17 ) | LOADER_FORMATS[LITERAL_LOAD][1]| ( LOADER_BITMASKS["X_FLAG"] * x_flag )| ( LOADER_BITMASKS["R_FLAG"] * r_flag ), lambda y=addr[1:]: [parsearg(y)()]))
 					handled = True
 				else:
@@ -364,8 +365,8 @@ for lnum in range(len(ll)):
 				map_bit = False
 				augment_code = 0
 				wait_bit = False
-				merge_bit = False
-				unit = "0"
+				unit = addridx
+				index_bit = 0
 				
 				if len(addridx.split(",")) == 2:
 					(unit, wait) = addridx.split(",")
@@ -373,19 +374,17 @@ for lnum in range(len(ll)):
 						wait_bit = True
 						
 				elif  len(addridx.split(",")) == 3:
-					(unit, wait, merge) = addridx.split(",")
-					if merge == "R":
-						merge_bit = True
+					(unit, wait, index) = addridx.split(",")
+					if index == "1":
+						index_bit = True
+						
 					if wait == "W":
 						wait_bit = True
-						
 
-				if IO_OPCODES[op][1]:
-					opcode = (IO_OPCODES[op][0] << 6) | (merge_bit << 11) | (indirect_bit << 10) | (map_bit << 9) | (wait_bit << 6)
-				else:
-					opcode = (IO_OPCODES[op][0] << 6) | (wait_bit << 6)
-#				PROGRAM_LISTING.append((lnum,"DATA", LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ),lambda x=opcode, y=unit:[parsearg(y)()|x]))
-#				handled = True
+				opcode = (IO_OPCODES[op][0] << 12) | (index_bit << 11) | (indirect_bit << 10) | (map_bit << 9) | (wait_bit << 6) | (IO_OPCODES[op][1] << 7)
+					
+				PROGRAM_LISTING.append((lnum,"DATA", LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ) | opcode,lambda y=unit:[parsearg(y)()]))
+				handled = True
 				CUR_ADDRESS += 1
 
 			elif op in INT_OPCODES:
@@ -421,17 +420,25 @@ for c in CONSTANTS: #assign literals to memory at the end of the program
 	o+=1;
 	PROGRAM_LISTING.append((0,"DATA", c ,lambda x: [x]))
 
+print("writing binary")
+fn = "%s.obj"  % ".".join(filename.split(".")[:-1])
+f = open(fn, "wb")
 for l in PROGRAM_LISTING:
-	if l[2] != None:
-		for v in l[-1]():
-			if isinstance(v, list):
-				for b in v:
-					print("%08o\t%s\t\t\t" % ((l[2]|b ),ll[l[0]].strip()), l,v)
+	for l in PROGRAM_LISTING:
+		if l[2] != None:
+			for v in l[-1]():
+				if isinstance(v, list):
+					for b in v:
+						val = l[2]|b
+						print("%08o\t%s\t\t\t" % ((val),ll[l[0]].strip()), l,v)
+						f.write(struct.pack("3B", (val & 0xff0000) >> 16, (val & 0xff00) >> 8,(val & 0xff) ))
 
-			else:
-				print("%08o\t%s\t\t\t" % ((l[2]|v ),ll[l[0]].strip()), l,v)
-	else:
-		print(l)
+				else:
+					print("%08o\t%s\t\t\t" % ((l[2]|v ),ll[l[0]].strip()), l,v)
+					f.write(b"\x00\x00\x00") #placeholder for bad op
+		else:
+			print(l)
+f.close()
 
 ##second pass
 #PROGRAM = {0:[]}

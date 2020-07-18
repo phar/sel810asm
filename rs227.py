@@ -1,4 +1,5 @@
 import struct
+import sys
 
 START_CODE = 0xff
 CARRIAGE_RETURN = 0x8d
@@ -16,36 +17,51 @@ class RS227():
 		a = 0x00
 		while a != CARRIAGE_RETURN:
 			a = ord(self.fp.read(1))
-		a = ord(self.fp.read(1))
-		if a != LINE_FEED:
+
+		if ord(self.fp.read(1)) != LINE_FEED:
 			raise ValueError
 			
 	def _read_tape_code(self):
 		return ord(self.fp.read(1))
 
 	def _read_tape_frame(self):
-		rawbytes = self.fp.read(108)
-		rawframe = struct.unpack("108B",rawbytes)
-		frame = [rawframe[i] << 16 | rawframe[i + 1] << 8 | rawframe[i + 2] for i in range(0, len(rawframe), 3)]
-		x = self.fp.read(2)
-		check = struct.unpack(">h",x)[0]
-		crlf = struct.unpack("BB",self.fp.read(2))
-		check2 = self._crc(struct.unpack(">54H",rawbytes))
-		return (check,check2,frame)
+		check = 0
+		check2 = 0
+		error = False
+		frame = []
+		try:
+			rawbytes = self.fp.read(108)
+			rawframe = struct.unpack("108B",rawbytes)
+			frame = [rawframe[i] << 16 | rawframe[i + 1] << 8 | rawframe[i + 2] for i in range(0, len(rawframe), 3)]
+			x = self.fp.read(2)
+			check = struct.unpack(">h",x)[0]
+			crlf = struct.unpack("BB",self.fp.read(2))
+			check2 = self._crc(struct.unpack(">54H",rawbytes))
+		except:
+			error = True
+			
+		return (check,check2,frame,error)
 
 	def read_contents(self, ignore_errors=False):
 		self.fp = open(self.filename,"rb")
 		self._read_tape_leader()
 		tc = self._read_tape_code()
+
 		full_tape = []
-		while tc == START_CODE:
-			(check, check2, frame) = self._read_tape_frame()
+		
+		while tc in [START_CODE, 0x00]:
+			(check, check2, frame,error) = self._read_tape_frame()
 			if ignore_errors != True:
-				if check != check2:
+				if check == check2:
+					print("check",check,"check2",check2)
 					raise ValueError
 			full_tape = full_tape + frame
+			if error:
+				return full_tape
 			tc = self._read_tape_code()
+#			print(full_tape)
 		self.close()
+		
 		return full_tape
 
 	def _crc(self,contents): # takes a list of shorts
@@ -78,5 +94,5 @@ class RS227():
 
 
 if __name__ == '__main__':
-	tape = RS227("clt2_v2.bin")
-	(tape.read_contents())
+	tape = RS227(sys.argv[1])
+	print (tape.read_contents())
