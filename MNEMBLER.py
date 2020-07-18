@@ -94,7 +94,7 @@ def detectarg(argstring):
 		if argstring[bnext] == "'": #alphanumeric
 			bnext += 1
 			t = "str"
-			lambdaparse = lambda x,y=bnext : str(x[y:-2])
+			lambdaparse = lambda x,y=bnext : [ord(x) for x in x[y:-2]]
 		else:
 			t = "oct"
 			lambdaparse = lambda x,y=bnext,s=sign : int(x[y:],8) * s
@@ -168,7 +168,7 @@ def parsearg(argstring):
 	return total
 
 
-filename = "boot.asm"
+filename = "SEL810A_CLT2.ASM"
 f = open(filename)
 ll = f.readlines()
 #FIRST PASS
@@ -179,6 +179,7 @@ for lnum in range(len(ll)):
 	l = ll[lnum]
 	l = l.replace("\n","")
 	l = list(l)
+	handled = False
 
 	if len(l):
 		if l[0] == "*":
@@ -220,6 +221,9 @@ for lnum in range(len(ll)):
 				indirect_bit = True
 			op = op.strip()
 
+		if addridx:
+			addridx = addridx.strip()
+
 		if label:
 			SYMBOLS[label] = ("int",CUR_ADDRESS)
 
@@ -235,6 +239,7 @@ for lnum in range(len(ll)):
 					r_flag = True
 					try:
 						PROGRAM_LISTING.append((lnum,op, LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ) | ( LOADER_BITMASKS["R_FLAG"] * r_flag ) , lambda y=addridx:  [parsearg(y)() ] ))
+						handled = True
 						continue
 						
 					except Exception as  err:
@@ -264,7 +269,8 @@ for lnum in range(len(ll)):
 				elif op == "DATA":
 					r_flag = True
 					for i in addridx.split(","):
-						PROGRAM_LISTING.append((lnum,op, LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda y=i.strip(): [parsearg(y)()] ))
+						PROGRAM_LISTING.append((lnum,op, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda y=i.strip(): [parsearg(y)()] ))
+						handled = True
 						CUR_ADDRESS += 1
 					continue
 
@@ -291,6 +297,7 @@ for lnum in range(len(ll)):
 							idx = True
 
 					PROGRAM_LISTING.append((lnum,"DATA", LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag )|LOADER_BITMASKS["DAC"] ,lambda y=val:[parsearg(y)()]))
+					handled = True
 					CUR_ADDRESS += 1
 					continue
 					
@@ -308,20 +315,31 @@ for lnum in range(len(ll)):
 							idx = True
 
 					PROGRAM_LISTING.append((lnum,"DATA", LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag )|LOADER_BITMASKS["EAC"] ,lambda y=val:[parsearg(y)()]))
+					handled = True
 					continue
 					
-				PROGRAM_LISTING.append((lnum,op, None ,[addridx])) #fail fixme
+				PROGRAM_LISTING.append((lnum,op, None ,lambda : [addridx])) #fail fixme
 			
 			elif op in MREF_OPCODES:
-				if len(addridx.split(",")) == 1:
-					addr = addridx
-					
-				elif len(addridx.split(",")) == 2:
-					(addr,idx) = addridx.split(",")
-					if int(idx):
-						x_flag = True
+				addr = addridx
+				if addr[0] == "=":
+					x_flag = True
+#					print(addr[1:])
+					PROGRAM_LISTING.append((lnum,op,(MREF_OPCODES[op] << 17 ) | LOADER_FORMATS[LITERAL_LOAD][1]| ( LOADER_BITMASKS["X_FLAG"] * x_flag )| ( LOADER_BITMASKS["R_FLAG"] * r_flag ), lambda y=addr[1:]: [parsearg(y)()]))
+					handled = True
+				else:
+					r_flag = True
+					if len(addridx.split(",")) == 1:
+						addr = addridx
+						
+					elif len(addridx.split(",")) == 2:
+						(addr,idx) = addridx.split(",")
+						if int(idx):
+							x_flag = True
 
-				PROGRAM_LISTING.append((lnum,op, LOADER_FORMATS[MEMREF_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag )| ( LOADER_BITMASKS["I_FLAG"] * i_flag )| ( LOADER_BITMASKS["R_FLAG"] * r_flag ), lambda y=addr: [parsearg(y)()]))
+					PROGRAM_LISTING.append((lnum,op, (MREF_OPCODES[op] << 17 ) | LOADER_FORMATS[MEMREF_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag )| ( LOADER_BITMASKS["I_FLAG"] * i_flag )| ( LOADER_BITMASKS["R_FLAG"] * r_flag ), lambda y=addr: [parsearg(y)()]))
+					handled = True
+
 				CUR_ADDRESS += 1
 
 			elif op in AUGMENTED_OPCODES:
@@ -338,6 +356,7 @@ for lnum in range(len(ll)):
 				opcode = (AUGMENTED_OPCODES[op][0] << 12) | (shift_count << 6) | AUGMENTED_OPCODES[op][1]
 				
 				PROGRAM_LISTING.append((lnum,"DATA", LOADER_FORMATS[DIRECT_LOAD][1], lambda y=opcode: [y]))
+				handled = True
 				CUR_ADDRESS += 1
 				
 			elif op in IO_OPCODES:
@@ -346,12 +365,13 @@ for lnum in range(len(ll)):
 				augment_code = 0
 				wait_bit = False
 				merge_bit = False
-				unit = 0
+				unit = "0"
 				
 				if len(addridx.split(",")) == 2:
 					(unit, wait) = addridx.split(",")
 					if wait == "W":
 						wait_bit = True
+						
 				elif  len(addridx.split(",")) == 3:
 					(unit, wait, merge) = addridx.split(",")
 					if merge == "R":
@@ -364,8 +384,8 @@ for lnum in range(len(ll)):
 					opcode = (IO_OPCODES[op][0] << 6) | (merge_bit << 11) | (indirect_bit << 10) | (map_bit << 9) | (wait_bit << 6)
 				else:
 					opcode = (IO_OPCODES[op][0] << 6) | (wait_bit << 6)
-				PROGRAM_LISTING.append((lnum,"DATA", LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ),lambda x=opcode, y=unit:[parsearg(y)()|x]))
-
+#				PROGRAM_LISTING.append((lnum,"DATA", LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ),lambda x=opcode, y=unit:[parsearg(y)()|x]))
+#				handled = True
 				CUR_ADDRESS += 1
 
 			elif op in INT_OPCODES:
@@ -381,7 +401,7 @@ for lnum in range(len(ll)):
 
 				opcode = (INT_OPCODES[op] << 12) | augment_code
 				PROGRAM_LISTING.append((lnum,"DATA", LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ),lambda x=opcode, y=augment_code:[parsearg(y)()|x]))
-
+				handled = True
 				CUR_ADDRESS += 1
 
 					
@@ -390,8 +410,9 @@ for lnum in range(len(ll)):
 				print("unhandled opcode [%s] on %s:%d in first pass.. you should fix that.. fatal" % (op,filename,lnum+1))
 				exit()
 
-
-
+			if handled == False:
+				PROGRAM_LISTING.append((lnum,"ERROR",None,None))
+		
 	
 print("assigning constants to end of program memory")
 o = 0
@@ -401,8 +422,16 @@ for c in CONSTANTS: #assign literals to memory at the end of the program
 	PROGRAM_LISTING.append((0,"DATA", c ,lambda x: [x]))
 
 for l in PROGRAM_LISTING:
-	print("%08o\t%s\t\t\t" % ((l[2]| l[-1]()[0] ),ll[l[0]].strip()), l,l[-1]())
+	if l[2] != None:
+		for v in l[-1]():
+			if isinstance(v, list):
+				for b in v:
+					print("%08o\t%s\t\t\t" % ((l[2]|b ),ll[l[0]].strip()), l,v)
 
+			else:
+				print("%08o\t%s\t\t\t" % ((l[2]|v ),ll[l[0]].strip()), l,v)
+	else:
+		print(l)
 
 ##second pass
 #PROGRAM = {0:[]}

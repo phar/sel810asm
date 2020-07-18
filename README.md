@@ -1,3 +1,7 @@
+.227 files are direct reads of 24 bit format from tape
+.obj files are raw 24 bit loader object files
+.bin are raw 16 bit opcode files
+
 # sel810asm
 it can almost assemble its own bootloader!
 

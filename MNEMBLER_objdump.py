@@ -27,6 +27,13 @@ def printline(offset, opcode, nmemonic="", nmemonicarg=""):
 tape = RS227(sys.argv[1])
 full_tape = tape.read_contents()
 
+fn = "%s.obj" % ".".join(sys.argv[1].split(".")[:-1])
+print("writing output to %s" % fn)
+f = open(fn,"wb")
+for w in full_tape:
+	f.write(struct.pack("3B",(w & 0xff0000) >> 16,(w & 0xff00) >> 8, (w & 0xff)))
+f.close()
+
 l = 0
 idx = 0
 while idx < len(full_tape):
