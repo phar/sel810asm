@@ -60,7 +60,7 @@ SETP LAA  ='151400                  PRINT S
      MOP  '43,W
      DATA '100000                   RESET ST PT EXEC
      BRU  STRT
-OFF  LAA  ='147400                 PRINT 0
+OFF  LAA  ='147400                  PRINT 0
      SPB  AOP
      BRU  STRT
 WARN LAA  ='153400                  PRINT W
@@ -183,7 +183,7 @@ HOME IMS  LOCC
      DATA '100000                   SET PT EXEC
      BRU  *+2
      BRU  HOME+2
-     AIP '44,W                     SW 7
+     AIP '44,W                      SW 7
      LSL  8                         SHIFT SW6 OFF
      CMA  ='71000                   SW7=FUNCT 72
      BRU  *+2
