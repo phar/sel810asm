@@ -93,7 +93,7 @@ def detectarg(curr_address, argstring):
 		if argstring[bnext] == "'": #alphanumeric
 			bnext += 1
 			t = "str"
-			lambdaparse = lambda x,y=bnext : [ord(x) for x in x[y:-2]]
+			lambdaparse = lambda x,y=bnext : [ord(x) | 0x80 for x in x[y:-2]]
 		else:
 			t = "oct"
 			lambdaparse = lambda x,y=bnext,s=sign : int(x[y:],8) * s
@@ -266,10 +266,17 @@ for lnum in range(len(ll)):
 #					for i in addridx.split(","): #fixme, this syntax detection is broken
 					data = parsearg(CUR_ADDRESS,addridx)()
 					handled = True
+					print(data)
 					if isinstance(data,list):
-						for d in data:
-							PROGRAM_LISTING.append((lnum,CUR_ADDRESS,op, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=d:[x]))
+						for d in range(0,len(data),2):
+							try:
+								r =  (data[d] << 8) | (data[d+1])
+							except IndexError:
+								r = data[d]
+							
+							PROGRAM_LISTING.append((lnum,CUR_ADDRESS,op, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=r:[x]))
 							CUR_ADDRESS += 1
+						#fixme .. leftover byte
 					else:
 						PROGRAM_LISTING.append((lnum,CUR_ADDRESS,op, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=data:[x]))
 						CUR_ADDRESS += 1
