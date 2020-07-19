@@ -200,15 +200,18 @@ for lnum in range(len(ll)):
 		indirect_bit = False
 		
 		if op != None:
-			if op.upper() == "DATA":
+			op = op.strip()
+			
+			if op == "DATA":
 				if comment != None:
 					addridx += comment
-					addridx = addridx.split(" ")[0] #this is a bit of a hack for a special case of data with a comment, but not a long line
+					if "''" not in addridx:
+						addridx = addridx.split(" ")[0] #this is a bit of a hack for a special case of data with a comment, but not a long line
 				comment = None
+				
 			elif op[-1] == "*":
-				op = op.replace("*"," ") #indirect instruction
+				op = op[:-1]#op.replace("*"," ") #indirect instruction
 				indirect_bit = True
-			op = op.strip()
 
 		if addridx:
 			addridx = addridx.strip()
@@ -223,12 +226,15 @@ for lnum in range(len(ll)):
 					
 				elif op == "ABS":
 					ADDR_MODE = MODE_ABSOLUTE
+				
+				elif op == "END":
+					pass #fixme add endj opcode
 					
 				elif op == "ORG":
 					r_flag = True
 					try:
 						CUR_ADDRESS =parsearg(CUR_ADDRESS,addridx)()
-						PROGRAM_LISTING.append((lnum,op, LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ) | ( LOADER_BITMASKS["R_FLAG"] * r_flag ) , lambda x=CUR_ADDRESS, y=addridx:  [parsearg(x,y)() ] ))
+						PROGRAM_LISTING.append((lnum,CUR_ADDRESS,op, LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ) | ( LOADER_BITMASKS["R_FLAG"] * r_flag ) , lambda x=CUR_ADDRESS, y=addridx:  [parsearg(x,y)() ] ))
 						handled = True
 						continue
 						
@@ -249,18 +255,23 @@ for lnum in range(len(ll)):
 						if int(idx):
 							idx = True
 							
+					#fixme
 #					PROGRAM_LISTING.append((lnum,op, (indirect_bit<<14), lambda x,y=val:  [parsearg(y)() | x]))
-
 #					PROGRAM_LISTING.append((lnum,op, (indirect_bit<<14), lambda x,y=val:  [parsearg(y)()]))
+#					handled = True
 					continue
-
-
 
 				elif op == "DATA":
 					r_flag = True
-					for i in addridx.split(","):
-						PROGRAM_LISTING.append((lnum,op, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=CUR_ADDRESS,y=i.strip(): [parsearg(x,y)()] ))
-						handled = True
+#					for i in addridx.split(","): #fixme, this syntax detection is broken
+					data = parsearg(CUR_ADDRESS,addridx)()
+					handled = True
+					if isinstance(data,list):
+						for d in data:
+							PROGRAM_LISTING.append((lnum,CUR_ADDRESS,op, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=d:[x]))
+							CUR_ADDRESS += 1
+					else:
+						PROGRAM_LISTING.append((lnum,CUR_ADDRESS,op, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=data:[x]))
 						CUR_ADDRESS += 1
 					continue
 
@@ -286,7 +297,7 @@ for lnum in range(len(ll)):
 						if int(idx):
 							idx = True
 
-					PROGRAM_LISTING.append((lnum,"DATA", LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag )|LOADER_BITMASKS["DAC"] ,lambda x=CUR_ADDRESS,y=val:[parsearg(x,y)()]))
+					PROGRAM_LISTING.append((lnum,CUR_ADDRESS,"DATA", LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag )|LOADER_BITMASKS["DAC"] ,lambda x=CUR_ADDRESS,y=val:[parsearg(x,y)()]))
 					handled = True
 					CUR_ADDRESS += 1
 					continue
@@ -304,11 +315,11 @@ for lnum in range(len(ll)):
 						if int(idx):
 							idx = True
 
-					PROGRAM_LISTING.append((lnum,"DATA", LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag )|LOADER_BITMASKS["EAC"] ,lambda x=CUR_ADDRESS,y=val:[parsearg(x,y)()]))
+					PROGRAM_LISTING.append((lnum,CUR_ADDRESS,"DATA", LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag )|LOADER_BITMASKS["EAC"] ,lambda x=CUR_ADDRESS,y=val:[parsearg(x,y)()]))
 					handled = True
 					continue
 					
-				PROGRAM_LISTING.append((lnum,op, None ,lambda : [addridx])) #fail fixme
+				PROGRAM_LISTING.append((lnum,CUR_ADDRESS,op, None ,lambda : [addridx])) #fail fixme
 			
 			elif op in MREF_OPCODES:
 				addr = addridx
@@ -316,7 +327,7 @@ for lnum in range(len(ll)):
 					i_flag = True
 				if addr[0] == "=":
 					x_flag = True
-					PROGRAM_LISTING.append((lnum,op,(MREF_OPCODES[op] << 17 ) | LOADER_FORMATS[LITERAL_LOAD][1]| ( LOADER_BITMASKS["X_FLAG"] * x_flag )| ( LOADER_BITMASKS["R_FLAG"] * r_flag ), lambda x=CUR_ADDRESS,y=addr[1:]: [parsearg(x,y)()]))
+					PROGRAM_LISTING.append((lnum,CUR_ADDRESS,op,(MREF_OPCODES[op] << 17 ) | LOADER_FORMATS[LITERAL_LOAD][1]| ( LOADER_BITMASKS["X_FLAG"] * x_flag )| ( LOADER_BITMASKS["R_FLAG"] * r_flag ), lambda x=CUR_ADDRESS,y=addr[1:]: [parsearg(x,y)()]))
 					handled = True
 				else:
 					r_flag = True
@@ -328,7 +339,7 @@ for lnum in range(len(ll)):
 						if int(idx):
 							x_flag = True
 
-					PROGRAM_LISTING.append((lnum,op, (MREF_OPCODES[op] << 17 ) | LOADER_FORMATS[MEMREF_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag )| ( LOADER_BITMASKS["I_FLAG"] * i_flag )| ( LOADER_BITMASKS["R_FLAG"] * r_flag ), lambda x=CUR_ADDRESS,y=addr: [parsearg(x,y)()]))
+					PROGRAM_LISTING.append((lnum,CUR_ADDRESS,op, (MREF_OPCODES[op] << 17 ) | LOADER_FORMATS[MEMREF_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag )| ( LOADER_BITMASKS["I_FLAG"] * i_flag )| ( LOADER_BITMASKS["R_FLAG"] * r_flag ), lambda x=CUR_ADDRESS,y=addr: [parsearg(x,y)()]))
 					handled = True
 
 				CUR_ADDRESS += 1
@@ -346,7 +357,7 @@ for lnum in range(len(ll)):
 
 				opcode = (AUGMENTED_OPCODES[op][0] << 12) | (shift_count << 6) | AUGMENTED_OPCODES[op][1]
 				
-				PROGRAM_LISTING.append((lnum,"DATA", LOADER_FORMATS[DIRECT_LOAD][1], lambda y=opcode: [y]))
+				PROGRAM_LISTING.append((lnum,CUR_ADDRESS,"DATA", LOADER_FORMATS[DIRECT_LOAD][1], lambda y=opcode: [y]))
 				handled = True
 				CUR_ADDRESS += 1
 				
@@ -373,7 +384,7 @@ for lnum in range(len(ll)):
 
 				opcode = (IO_OPCODES[op][0] << 12) | (index_bit << 11) | (indirect_bit << 10) | (map_bit << 9) | (wait_bit << 6) | (IO_OPCODES[op][1] << 7)
 					
-				PROGRAM_LISTING.append((lnum,"DATA", LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ) | opcode,lambda x=CUR_ADDRESS,y=unit:[parsearg(x,y)()]))
+				PROGRAM_LISTING.append((lnum,CUR_ADDRESS,"DATA", LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ) | opcode,lambda x=CUR_ADDRESS,y=unit:[parsearg(x,y)()]))
 				handled = True
 				CUR_ADDRESS += 1
 
@@ -389,7 +400,7 @@ for lnum in range(len(ll)):
 						sys.exit(-1)
 
 				opcode = (INT_OPCODES[op] << 12) | augment_code
-				PROGRAM_LISTING.append((lnum,"DATA", LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ),lambda x=opcode, y=augment_code, z=CUR_ADDRESS:[parsearg(z, y)()|x]))
+				PROGRAM_LISTING.append((lnum,CUR_ADDRESS,"DATA", LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ),lambda x=opcode, y=augment_code, z=CUR_ADDRESS:[parsearg(z, y)()|x]))
 				handled = True
 				CUR_ADDRESS += 1
 
@@ -421,19 +432,18 @@ print("writing binary")
 fn = "%s.obj"  % ".".join(filename.split(".")[:-1])
 f = open(fn, "wb")
 for l in PROGRAM_LISTING:
-	for l in PROGRAM_LISTING:
-		if l[2] != None:
-			for v in l[-1]():
-				if isinstance(v, list):
-					for b in v:
-						val = l[2]|b
-						print("%08o\t%s\t\t\t" % ((val),ll[l[0]].strip()), l,v)
-						f.write(struct.pack("3B", (val & 0xff0000) >> 16, (val & 0xff00) >> 8,(val & 0xff) ))
+	if l[3] != None:
+		for v in l[-1]():
+			label = ""
+			for s,a in SYMBOLS.items():
+				if a[1] == l[1]:
+					label = s
 
-				else:
-					print("%08o\t%s\t\t\t" % ((l[2]|v ),ll[l[0]].strip()), l,v)
-					f.write(b"\x00\x00\x00") #placeholder for bad op
-		else:
-			print(l)
+			val = l[3]
+			print("%04x\t%08o\t%s\t%s\t\t\t" % (l[1],(l[3]|v ),label,ll[l[0]].strip()))
+			f.write(struct.pack("3B", (val & 0xff0000) >> 16, (val & 0xff00) >> 8,(val & 0xff) ))
+	else:
+		f.write(b"\x00\x00\x00") #placeholder for bad op
+		print(l)
 f.close()
 
