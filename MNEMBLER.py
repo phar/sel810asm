@@ -67,7 +67,7 @@ def octprint(val):
 
 
 
-def detectarg(argstring):
+def detectarg(curr_address, argstring):
 	#'003003      #octal
 	#+'003003      #octal
 	#-'003003      #octal
@@ -111,10 +111,10 @@ def detectarg(argstring):
 				lambdaparse = lambda x : 0 #"This address is set during assembly to an abso1ute address of 00000."
 			else:
 				t = "ip"
-				lambdaparse = lambda x,y =CUR_ADDRESS,s=sign : y * s
+				lambdaparse = lambda x,y =curr_address,s=sign : y * s
 		else:
 			t = "ip"
-			lambdaparse = lambda x,y =CUR_ADDRESS,s=sign : y * s
+			lambdaparse = lambda x,y =curr_address,s=sign : y * s
 
 	elif argstring[bnext:] in SYMBOLS:
 		t = "label"
@@ -134,7 +134,7 @@ def detectarg(argstring):
 	return (t,lambdaparse)
 	
 	
-def parsearg(argstring):
+def parsearg(curr_address,argstring):
 	argstring = argstring.strip()
 	argparts = re.split("(\+|\-)",argstring)
 	total = lambda :0
@@ -148,7 +148,7 @@ def parsearg(argstring):
 					mth = lambda x,y : x()+y()
 			else:
 			
-				t,f = detectarg(argparts[i])
+				t,f = detectarg(curr_address, argparts[i])
 				if t == 'str':
 					return lambda x=f : x(argparts[i])
 				else:
@@ -227,8 +227,8 @@ for lnum in range(len(ll)):
 				elif op == "ORG":
 					r_flag = True
 					try:
-						CUR_ADDRESS =parsearg(addridx)()
-						PROGRAM_LISTING.append((lnum,op, LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ) | ( LOADER_BITMASKS["R_FLAG"] * r_flag ) , lambda y=addridx:  [parsearg(y)() ] ))
+						CUR_ADDRESS =parsearg(CUR_ADDRESS,addridx)()
+						PROGRAM_LISTING.append((lnum,op, LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ) | ( LOADER_BITMASKS["R_FLAG"] * r_flag ) , lambda x=CUR_ADDRESS, y=addridx:  [parsearg(x,y)() ] ))
 						handled = True
 						continue
 						
@@ -259,14 +259,14 @@ for lnum in range(len(ll)):
 				elif op == "DATA":
 					r_flag = True
 					for i in addridx.split(","):
-						PROGRAM_LISTING.append((lnum,op, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda y=i.strip(): [parsearg(y)()] ))
+						PROGRAM_LISTING.append((lnum,op, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=CUR_ADDRESS,y=i.strip(): [parsearg(x,y)()] ))
 						handled = True
 						CUR_ADDRESS += 1
 					continue
 
 				elif op == "EQU":
 					try:
-						SYMBOLS[label] = ("int",parsearg(addridx)()) #first pass only
+						SYMBOLS[label] = ("int",parsearg(CUR_ADDRESS, addridx)()) #first pass only
 					except Exception as  err:
 						print("****\n%s:%d generated the following error\n***" % (filename,lnum+1))
 						traceback.print_exc()
@@ -286,7 +286,7 @@ for lnum in range(len(ll)):
 						if int(idx):
 							idx = True
 
-					PROGRAM_LISTING.append((lnum,"DATA", LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag )|LOADER_BITMASKS["DAC"] ,lambda y=val:[parsearg(y)()]))
+					PROGRAM_LISTING.append((lnum,"DATA", LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag )|LOADER_BITMASKS["DAC"] ,lambda x=CUR_ADDRESS,y=val:[parsearg(x,y)()]))
 					handled = True
 					CUR_ADDRESS += 1
 					continue
@@ -304,7 +304,7 @@ for lnum in range(len(ll)):
 						if int(idx):
 							idx = True
 
-					PROGRAM_LISTING.append((lnum,"DATA", LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag )|LOADER_BITMASKS["EAC"] ,lambda y=val:[parsearg(y)()]))
+					PROGRAM_LISTING.append((lnum,"DATA", LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag )|LOADER_BITMASKS["EAC"] ,lambda x=CUR_ADDRESS,y=val:[parsearg(x,y)()]))
 					handled = True
 					continue
 					
@@ -316,7 +316,7 @@ for lnum in range(len(ll)):
 					i_flag = True
 				if addr[0] == "=":
 					x_flag = True
-					PROGRAM_LISTING.append((lnum,op,(MREF_OPCODES[op] << 17 ) | LOADER_FORMATS[LITERAL_LOAD][1]| ( LOADER_BITMASKS["X_FLAG"] * x_flag )| ( LOADER_BITMASKS["R_FLAG"] * r_flag ), lambda y=addr[1:]: [parsearg(y)()]))
+					PROGRAM_LISTING.append((lnum,op,(MREF_OPCODES[op] << 17 ) | LOADER_FORMATS[LITERAL_LOAD][1]| ( LOADER_BITMASKS["X_FLAG"] * x_flag )| ( LOADER_BITMASKS["R_FLAG"] * r_flag ), lambda x=CUR_ADDRESS,y=addr[1:]: [parsearg(x,y)()]))
 					handled = True
 				else:
 					r_flag = True
@@ -328,7 +328,7 @@ for lnum in range(len(ll)):
 						if int(idx):
 							x_flag = True
 
-					PROGRAM_LISTING.append((lnum,op, (MREF_OPCODES[op] << 17 ) | LOADER_FORMATS[MEMREF_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag )| ( LOADER_BITMASKS["I_FLAG"] * i_flag )| ( LOADER_BITMASKS["R_FLAG"] * r_flag ), lambda y=addr: [parsearg(y)()]))
+					PROGRAM_LISTING.append((lnum,op, (MREF_OPCODES[op] << 17 ) | LOADER_FORMATS[MEMREF_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag )| ( LOADER_BITMASKS["I_FLAG"] * i_flag )| ( LOADER_BITMASKS["R_FLAG"] * r_flag ), lambda x=CUR_ADDRESS,y=addr: [parsearg(x,y)()]))
 					handled = True
 
 				CUR_ADDRESS += 1
@@ -338,7 +338,7 @@ for lnum in range(len(ll)):
 				shift_count = 0
 				if addridx and addridx.strip() != "":
 					try:
-						shift_count = parsearg(addridx)()
+						shift_count = parsearg(CUR_ADDRESS,addridx)()
 					except Exception as  err:
 						print("****\n%s:%d generated the following error\n***" % (filename,lnum+1))
 						traceback.print_exc()
@@ -373,7 +373,7 @@ for lnum in range(len(ll)):
 
 				opcode = (IO_OPCODES[op][0] << 12) | (index_bit << 11) | (indirect_bit << 10) | (map_bit << 9) | (wait_bit << 6) | (IO_OPCODES[op][1] << 7)
 					
-				PROGRAM_LISTING.append((lnum,"DATA", LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ) | opcode,lambda y=unit:[parsearg(y)()]))
+				PROGRAM_LISTING.append((lnum,"DATA", LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ) | opcode,lambda x=CUR_ADDRESS,y=unit:[parsearg(x,y)()]))
 				handled = True
 				CUR_ADDRESS += 1
 
@@ -389,7 +389,7 @@ for lnum in range(len(ll)):
 						sys.exit(-1)
 
 				opcode = (INT_OPCODES[op] << 12) | augment_code
-				PROGRAM_LISTING.append((lnum,"DATA", LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ),lambda x=opcode, y=augment_code:[parsearg(y)()|x]))
+				PROGRAM_LISTING.append((lnum,"DATA", LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ),lambda x=opcode, y=augment_code, z=CUR_ADDRESS:[parsearg(z, y)()|x]))
 				handled = True
 				CUR_ADDRESS += 1
 
