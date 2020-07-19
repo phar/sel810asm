@@ -1,5 +1,5 @@
 import struct
-import sys
+
 
 START_CODE = 0xff
 CARRIAGE_RETURN = 0x8d
@@ -17,7 +17,8 @@ class RS227():
 		a = 0x00
 		while a != CARRIAGE_RETURN:
 			a = ord(self.fp.read(1))
-		if ord(self.fp.read(1)) != LINE_FEED:
+		a = ord(self.fp.read(1))
+		if a != LINE_FEED:
 			raise ValueError
 			
 	def _read_tape_code(self):
@@ -79,4 +80,4 @@ class RS227():
 
 if __name__ == '__main__':
 	tape = RS227(sys.argv[1])
-	print (tape.read_contents())
+	(tape.read_contents())
