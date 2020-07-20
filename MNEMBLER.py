@@ -208,9 +208,6 @@ def decompose_asm(l):
 		
 		return (label,op, indirect_bit, addridx, comment)
 
-
-
-
 	
 def asm_pass_1(ll,base_address=0):
 	program_listing = []

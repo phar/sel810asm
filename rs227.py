@@ -60,11 +60,12 @@ class RS227():
 		#fixme
 		for i in range(leader_len):
 			self.fp.write(self.feeder_code)
-			
+
+		self.fp.write(b"\x8d\x8a");
 		for i in range(0,len(contents),108):
 			self.fp.write(b"\xff");
-			self.fp.write(b"\x8d\x8a");
 			self.fp.write(contents[i:i+108])
+			self.fp.write(b"\x8d\x8a");
 			crc = self._crc(struct.unpack(">%dH" % (len(contents[i:i+108])/2),contents[i:i+108]))
 			self.fp.write(struct.pack(">H",crc))
 			
