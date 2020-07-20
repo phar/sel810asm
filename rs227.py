@@ -28,8 +28,7 @@ class RS227():
 		rawbytes = self.fp.read(108)
 		rawframe = struct.unpack("108B",rawbytes)
 		frame = [rawframe[i] << 16 | rawframe[i + 1] << 8 | rawframe[i + 2] for i in range(0, len(rawframe), 3)]
-		x = self.fp.read(2)
-		check = struct.unpack(">h",x)[0]
+		check = struct.unpack(">h",self.fp.read(2))[0]
 		crlf = struct.unpack("BB",self.fp.read(2))
 		check2 = self._crc(struct.unpack(">54H",rawbytes))
 		return (check,check2,frame)

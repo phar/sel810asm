@@ -50,8 +50,6 @@ SEL_INT_MAX = 0xffff
 SYMBOLS = {}
 EXTERNAL_SYMBOLS = {}
 ADDR_MODE = MODE_ABSOLUTE
-CUR_ADDRESS = 0
-PROGRAM_LISTING = []
 CONSTANTS = {}
 
 
@@ -93,7 +91,7 @@ def detectarg(curr_address, argstring):
 		if argstring[bnext] == "'": #alphanumeric
 			bnext += 1
 			t = "str"
-			lambdaparse = lambda x,y=bnext : [ord(x) | 0x80 for x in x[y:-2]]
+			lambdaparse = lambda x,y=bnext : [ord(x) | 0x80 for x in x[y:-2]] #patches in ASR33 converion of strings
 		else:
 			t = "oct"
 			lambdaparse = lambda x,y=bnext,s=sign : int(x[y:],8) * s
@@ -150,29 +148,21 @@ def parsearg(curr_address,argstring):
 			
 				t,f = detectarg(curr_address, argparts[i])
 				if t == 'str':
-					return lambda x=f : x(argparts[i])
+					return lambda x=f : x(argstring)
 				else:
 					total = lambda x=total, y = lambda x=f,y=argparts[i]: x(y), z=mth: z(x, y)
 	return total
 
 
-filename = "SEL810A_CLT2.ASM"
-f = open(filename)
-ll = f.readlines()
-#FIRST PASS
-for lnum in range(len(ll)):
-	r_flag = False
-	x_flag = False
-	i_flag = False
-	l = ll[lnum]
+
+
+def decompose_asm(l):
+
 	l = l.replace("\n","")
 	l = list(l)
-	handled = False
-	current_offset =0
-
 	if len(l):
 		if l[0] == "*":
-			continue
+			return (None,None,False,None,None)
 		if len(l) > 5:
 			l[4] = "\0"
 		if len(l) > 10:
@@ -215,220 +205,237 @@ for lnum in range(len(ll)):
 
 		if addridx:
 			addridx = addridx.strip()
+		
+		return (label,op, indirect_bit, addridx, comment)
 
-		if label:
-			SYMBOLS[label] = ("int",CUR_ADDRESS)
 
-		if op:
-			if op in PSEUDO_OPCODES:
-				if op == "REL":
-					ADDR_MODE = MODE_RELATIVE
-					
-				elif op == "ABS":
-					ADDR_MODE = MODE_ABSOLUTE
+
+
+	
+def asm_pass_1(ll,base_address=0):
+	program_listing = []
+	cur_address = base_address
+
+	for lnum in range(len(ll)):
+		r_flag = False
+		x_flag = False
+		i_flag = False
+		handled = False
+		current_offset =0
+		l = ll[lnum]
+		(label,op, indirect_bit, addridx, comment) = decompose_asm(l)
+		if op is not None or label is not None:
+			if label:
+				SYMBOLS[label] = ("int",cur_address)
 				
-				elif op == "END":
-					pass #fixme add endj opcode
-					
-				elif op == "ORG":
-					r_flag = True
-					try:
-						CUR_ADDRESS =parsearg(CUR_ADDRESS,addridx)()
-						PROGRAM_LISTING.append((lnum,CUR_ADDRESS,op, LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ) | ( LOADER_BITMASKS["R_FLAG"] * r_flag ) , lambda x=CUR_ADDRESS, y=addridx:  [parsearg(x,y)() ] ))
+			if op:
+				if op in PSEUDO_OPCODES:
+					if op == "REL":
+						ADDR_MODE = MODE_RELATIVE
+						handled = True #fixme, this will eventually have consequences
+						continue
+
+					elif op == "ABS":
+						ADDR_MODE = MODE_ABSOLUTE
+						continue
+
+					elif op == "END":
+						program_listing.append((lnum,cur_address,op,0xe20000 , lambda : [0]))
+						handled = True
+						cur_address += 1
+						continue
+						
+					elif op == "ORG":
+						r_flag = True
+						try:
+							cur_address =parsearg(cur_address,addridx)()
+							program_listing.append((lnum,cur_address,op, LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ) | ( LOADER_BITMASKS["R_FLAG"] * r_flag ) , lambda x=cur_address, y=addridx:  [parsearg(x,y)() ] ))
+							handled = True
+							continue
+							
+						except Exception as  err:
+							print("****\n%s:%d generated the following error\n***" % (filename,lnum+1))
+							traceback.print_exc()
+							sys.exit(-1)
+
+					elif op in ["***", "ZZZ"]:
+						#fixme parse args
+						if len(addridx.split(",")) == 1:
+							val = addridx
+							
+						elif len(addridx.split(",")) == 2:
+							(addr,idx) = addridx.split(",")
+							val = addr
+							if int(idx):
+								idx = True
+								
+						#fixme
+	#					program_listing.append((lnum,op, (indirect_bit<<14), lambda x,y=val:  [parsearg(y)() | x]))
+	#					program_listing.append((lnum,op, (indirect_bit<<14), lambda x,y=val:  [parsearg(y)()]))
+	#					handled = True
+						continue
+
+					elif op == "DATA":
+						r_flag = True
+	#					for i in addridx.split(","): #fixme, this syntax detection is broken
+						data = parsearg(cur_address,addridx)()
+						handled = True
+						if isinstance(data,list):
+							for d in range(0,len(data),2):
+								try:
+									r =  (data[d] << 8) | (data[d+1])
+								except IndexError:
+									r = data[d]
+								program_listing.append((lnum,cur_address,op, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=r:[x]))
+								cur_address += 1
+							#fixme .. leftover byte
+						else:
+							program_listing.append((lnum,cur_address,op, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=data:[x]))
+							cur_address += 1
+						continue
+
+					elif op == "EQU":
+						try:
+							SYMBOLS[label] = ("int",parsearg(cur_address, addridx)()) #first pass only
+						except Exception as  err:
+							print("****\n%s:%d generated the following error\n***" % (filename,lnum+1))
+							traceback.print_exc()
+							sys.exit(-1)
+						continue
+						
+					elif op == "DAC": #not right fixme
+						idx = False
+						x_flag = True
+						if len(addridx.split(",")) == 1:
+							val = addridx
+							
+						elif len(addridx.split(",")) == 2:    #fixme
+							(addr,idx) = addridx.split(",")
+							val = addr
+							if int(idx):
+								idx = True
+
+						program_listing.append((lnum,cur_address,"DATA", LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag )|LOADER_BITMASKS["DAC"] ,lambda x=cur_address,y=val:[parsearg(x,y)()]))
+						handled = True
+						cur_address += 1
+						continue
+						
+					elif op == "EAC": #not right either
+						daceac_bit = True
+						idx  = False
+						x_flag= true
+						if len(addridx.split(",")) == 1:
+							val = addridx
+							 
+						elif len(addridx.split(",")) == 2: #fixme too
+							(addr,idx) = addridx.split(",")
+							val = addr
+							if int(idx):
+								idx = True
+
+						program_listing.append((lnum,cur_address,"DATA", LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag )|LOADER_BITMASKS["EAC"] ,lambda x=cur_address,y=val:[parsearg(x,y)()]))
 						handled = True
 						continue
 						
-					except Exception as  err:
-						print("****\n%s:%d generated the following error\n***" % (filename,lnum+1))
-						traceback.print_exc()
-						sys.exit(-1)
-
-
-				elif op in ["***", "ZZZ"]:
-					#fixme parse args
-					if len(addridx.split(",")) == 1:
-						val = addridx
-						
-					elif len(addridx.split(",")) == 2:
-						(addr,idx) = addridx.split(",")
-						val = addr
-						if int(idx):
-							idx = True
-							
-					#fixme
-#					PROGRAM_LISTING.append((lnum,op, (indirect_bit<<14), lambda x,y=val:  [parsearg(y)() | x]))
-#					PROGRAM_LISTING.append((lnum,op, (indirect_bit<<14), lambda x,y=val:  [parsearg(y)()]))
-#					handled = True
-					continue
-
-				elif op == "DATA":
-					r_flag = True
-#					for i in addridx.split(","): #fixme, this syntax detection is broken
-					data = parsearg(CUR_ADDRESS,addridx)()
-					handled = True
-					print(data)
-					if isinstance(data,list):
-						for d in range(0,len(data),2):
-							try:
-								r =  (data[d] << 8) | (data[d+1])
-							except IndexError:
-								r = data[d]
-							
-							PROGRAM_LISTING.append((lnum,CUR_ADDRESS,op, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=r:[x]))
-							CUR_ADDRESS += 1
-						#fixme .. leftover byte
+				elif op in MREF_OPCODES:
+					addr = addridx
+					if indirect_bit:
+						i_flag = True
+					if addr[0] == "=":
+						x_flag = True
+						program_listing.append((lnum,cur_address,op,(MREF_OPCODES[op] << 17 ) | LOADER_FORMATS[LITERAL_LOAD][1]| ( LOADER_BITMASKS["X_FLAG"] * x_flag )| ( LOADER_BITMASKS["R_FLAG"] * r_flag ), lambda x=cur_address,y=addr[1:]: [parsearg(x,y)()]))
+						handled = True
 					else:
-						PROGRAM_LISTING.append((lnum,CUR_ADDRESS,op, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=data:[x]))
-						CUR_ADDRESS += 1
-					continue
+						r_flag = True
+						if len(addridx.split(",")) == 1:
+							addr = addridx
+							
+						elif len(addridx.split(",")) == 2:
+							(addr,idx) = addridx.split(",")
+							if int(idx):
+								x_flag = True
 
-				elif op == "EQU":
-					try:
-						SYMBOLS[label] = ("int",parsearg(CUR_ADDRESS, addridx)()) #first pass only
-					except Exception as  err:
-						print("****\n%s:%d generated the following error\n***" % (filename,lnum+1))
-						traceback.print_exc()
-						sys.exit(-1)
+						program_listing.append((lnum,cur_address,op, (MREF_OPCODES[op] << 17 ) | LOADER_FORMATS[MEMREF_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag )| ( LOADER_BITMASKS["I_FLAG"] * i_flag )| ( LOADER_BITMASKS["R_FLAG"] * r_flag ), lambda x=cur_address,y=addr: [parsearg(x,y)()]))
+						handled = True
 
-					continue
+					cur_address += 1
+
+				elif op in AUGMENTED_OPCODES:
+					shift_count = 0
+					if addridx and addridx.strip() != "":
+						try:
+							shift_count = parsearg(cur_address,addridx)()
+						except Exception as  err:
+							print("****\n%s:%d generated the following error\n***" % (filename,lnum+1))
+							traceback.print_exc()
+							sys.exit(-1)
+
+					opcode = (AUGMENTED_OPCODES[op][0] << 12) | (shift_count << 6) | AUGMENTED_OPCODES[op][1]
+					program_listing.append((lnum,cur_address,"DATA", LOADER_FORMATS[DIRECT_LOAD][1], lambda y=opcode: [y]))
+					handled = True
+					cur_address += 1
 					
-				elif op == "DAC": #not right fixme
-					idx = False
-					x_flag = True
-					if len(addridx.split(",")) == 1:
-						val = addridx
+				elif op in IO_OPCODES:
+					x_bit = False
+					map_bit = False
+					augment_code = 0
+					wait_bit = False
+					unit = addridx
+					index_bit = 0
+					
+					if len(addridx.split(",")) == 2:
+						(unit, wait) = addridx.split(",")
+						if wait == "W":
+							wait_bit = True
+							
+					elif  len(addridx.split(",")) == 3:
+						(unit, wait, index) = addridx.split(",")
+						if index == "1":
+							index_bit = True
+							
+						if wait == "W":
+							wait_bit = True
+
+					opcode = (IO_OPCODES[op][0] << 12) | (index_bit << 11) | (indirect_bit << 10) | (map_bit << 9) | (wait_bit << 6) | (IO_OPCODES[op][1] << 7)
 						
-					elif len(addridx.split(",")) == 2:    #fixme
-						(addr,idx) = addridx.split(",")
-						val = addr
-						if int(idx):
-							idx = True
+					program_listing.append((lnum,cur_address,"DATA", LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ) | opcode,lambda x=cur_address,y=unit:[parsearg(x,y)()]))
+					handled = True
+					cur_address += 1
 
-					PROGRAM_LISTING.append((lnum,CUR_ADDRESS,"DATA", LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag )|LOADER_BITMASKS["DAC"] ,lambda x=CUR_ADDRESS,y=val:[parsearg(x,y)()]))
-					handled = True
-					CUR_ADDRESS += 1
-					continue
-					
-				elif op == "EAC": #not right either
-					daceac_bit = True
-					idx  = False
-					x_flag= true
-					if len(addridx.split(",")) == 1:
-						val = addridx
-						 
-					elif len(addridx.split(",")) == 2: #fixme too
-						(addr,idx) = addridx.split(",")
-						val = addr
-						if int(idx):
-							idx = True
+				elif op in INT_OPCODES:
+					merge_bit = 0
+					augment_code = 0
+					if addridx:
+						try:
+							augment_code = parsearg(addridx)
+						except Exception as  err:
+							print("****\%s:%d generated the following error" % (filename,lnum+1))
+							traceback.print_exc()
+							sys.exit(-1)
 
-					PROGRAM_LISTING.append((lnum,CUR_ADDRESS,"DATA", LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag )|LOADER_BITMASKS["EAC"] ,lambda x=CUR_ADDRESS,y=val:[parsearg(x,y)()]))
+					opcode = (INT_OPCODES[op] << 12) | augment_code
+					program_listing.append((lnum,cur_address,"DATA", LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ),lambda x=opcode, y=augment_code, z=cur_address:[parsearg(z, y)()|x]))
 					handled = True
-					continue
+					cur_address += 1
 					
-				PROGRAM_LISTING.append((lnum,CUR_ADDRESS,op, None ,lambda : [addridx])) #fail fixme
-			
-			elif op in MREF_OPCODES:
-				addr = addridx
-				if indirect_bit:
-					i_flag = True
-				if addr[0] == "=":
-					x_flag = True
-					PROGRAM_LISTING.append((lnum,CUR_ADDRESS,op,(MREF_OPCODES[op] << 17 ) | LOADER_FORMATS[LITERAL_LOAD][1]| ( LOADER_BITMASKS["X_FLAG"] * x_flag )| ( LOADER_BITMASKS["R_FLAG"] * r_flag ), lambda x=CUR_ADDRESS,y=addr[1:]: [parsearg(x,y)()]))
-					handled = True
 				else:
-					r_flag = True
-					if len(addridx.split(",")) == 1:
-						addr = addridx
-						
-					elif len(addridx.split(",")) == 2:
-						(addr,idx) = addridx.split(",")
-						if int(idx):
-							x_flag = True
+					print("unhandled opcode [%s] on %s:%d in first pass.. you should fix that.. fatal" % (op,filename,lnum+1))
+					exit()
 
-					PROGRAM_LISTING.append((lnum,CUR_ADDRESS,op, (MREF_OPCODES[op] << 17 ) | LOADER_FORMATS[MEMREF_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag )| ( LOADER_BITMASKS["I_FLAG"] * i_flag )| ( LOADER_BITMASKS["R_FLAG"] * r_flag ), lambda x=CUR_ADDRESS,y=addr: [parsearg(x,y)()]))
-					handled = True
-
-				CUR_ADDRESS += 1
-
-			elif op in AUGMENTED_OPCODES:
-				
-				shift_count = 0
-				if addridx and addridx.strip() != "":
-					try:
-						shift_count = parsearg(CUR_ADDRESS,addridx)()
-					except Exception as  err:
-						print("****\n%s:%d generated the following error\n***" % (filename,lnum+1))
-						traceback.print_exc()
-						sys.exit(-1)
-
-				opcode = (AUGMENTED_OPCODES[op][0] << 12) | (shift_count << 6) | AUGMENTED_OPCODES[op][1]
-				
-				PROGRAM_LISTING.append((lnum,CUR_ADDRESS,"DATA", LOADER_FORMATS[DIRECT_LOAD][1], lambda y=opcode: [y]))
-				handled = True
-				CUR_ADDRESS += 1
-				
-			elif op in IO_OPCODES:
-				x_bit = False
-				map_bit = False
-				augment_code = 0
-				wait_bit = False
-				unit = addridx
-				index_bit = 0
-				
-				if len(addridx.split(",")) == 2:
-					(unit, wait) = addridx.split(",")
-					if wait == "W":
-						wait_bit = True
-						
-				elif  len(addridx.split(",")) == 3:
-					(unit, wait, index) = addridx.split(",")
-					if index == "1":
-						index_bit = True
-						
-					if wait == "W":
-						wait_bit = True
-
-				opcode = (IO_OPCODES[op][0] << 12) | (index_bit << 11) | (indirect_bit << 10) | (map_bit << 9) | (wait_bit << 6) | (IO_OPCODES[op][1] << 7)
+				if handled == False:
+					program_listing.append((lnum,"ERROR",None,None))
 					
-				PROGRAM_LISTING.append((lnum,CUR_ADDRESS,"DATA", LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ) | opcode,lambda x=CUR_ADDRESS,y=unit:[parsearg(x,y)()]))
-				handled = True
-				CUR_ADDRESS += 1
-
-			elif op in INT_OPCODES:
-				merge_bit = 0
-				augment_code = 0
-				if addridx:
-					try:
-						augment_code = parsearg(addridx)
-					except Exception as  err:
-						print("****\%s:%d generated the following error" % (filename,lnum+1))
-						traceback.print_exc()
-						sys.exit(-1)
-
-				opcode = (INT_OPCODES[op] << 12) | augment_code
-				PROGRAM_LISTING.append((lnum,CUR_ADDRESS,"DATA", LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ),lambda x=opcode, y=augment_code, z=CUR_ADDRESS:[parsearg(z, y)()|x]))
-				handled = True
-				CUR_ADDRESS += 1
-
-					
-
-			else:
-				print("unhandled opcode [%s] on %s:%d in first pass.. you should fix that.. fatal" % (op,filename,lnum+1))
-				exit()
-
-			if handled == False:
-				PROGRAM_LISTING.append((lnum,"ERROR",None,None))
-		
+	return program_listing
 	
-print("assigning constants to end of program memory")
-o = 0
-for c in CONSTANTS: #assign literals to memory at the end of the program
-	CONSTANTS[c] = CUR_ADDRESS + o
-	o+=1;
-	PROGRAM_LISTING.append((0,"DATA", c ,lambda x: [x]))
+	
+		
+filename = sys.argv[1]
+f = open(filename)
+ll = f.readlines()
 
-
+#FIRST PASS
+PROGRAM_LISTING = asm_pass_1(ll)
+	
 fn = "%s.sym"  % ".".join(filename.split(".")[:-1])
 print("writing symbols %s" % fn)
 f = open(fn, "w")
