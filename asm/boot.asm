@@ -2,7 +2,7 @@
 * boot strap loader from tape
 ****************************
      ORG  '001000
-*i still dont know what CHAN actually is
+*i still dont know what CHAN actually is, defined it to match binary
 CHAN EQU  '007673
 UNIT EQU  2
 STRT CEU  UNIT,W
@@ -21,4 +21,3 @@ READ AIP  UNIT,W
      BRU  READ
 DAC1 DAC  CHAN-2,1
 DAC2 DAC  CHAN
-*     LAA  ='000001
