@@ -135,14 +135,14 @@ if __name__ == '__main__':
 	for val in  binfile:
 		if second_word == False:
 			(opcode, nmemonic, indir,  args, comment, second_word, second_word_hint) = SELDISASM(val)
-			buf2 = "%s%s\t%s" % (nmemonic, indir, args)
+			buf2 = "0x%04x\t%06o\t%s%s\t%s" % (i,val,nmemonic, indir, args)
 			if comment:
-				print("%s\t\t*%s" % (buf2,comment))
+				print("0x%04x\t%06o\t%s\t\t*%s" % (i,val,buf2,comment))
 			else:
 				print("%s" % (buf2))
 		else:
 			binval = bin(val)[2:].zfill(16)
-			buf = "%s\t'%06o\t\t(0b%s) " % ("DATA",val," ".join([binval[i:i+4] for i in range(0, len(binval), 4)]))
+			buf = "0x%04x\t%06o\t%s\t'%06o\t\t(0b%s) " % (i,val,"DATA",val," ".join([binval[i:i+4] for i in range(0, len(binval), 4)]))
 			print(buf,end='')
 			if second_word_hint != None:
 				hintlst = []
