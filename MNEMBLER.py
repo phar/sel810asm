@@ -4,6 +4,7 @@ import json
 import traceback
 import sys
 from SELOP import *
+from util import *
 
 """
 rel 4
@@ -65,93 +66,7 @@ def octprint(val):
 
 
 
-def detectarg(curr_address, argstring):
-	#'003003      #octal
-	#+'003003      #octal
-	#-'003003      #octal
-	#h5A			#hex
-	#+h5A			#hex
-	#-h5A			#hex
-	#*				#current address
-	#23.456B10, -B6, 12C0   #FIXED point
-	#22.33.44E0, .12345D2	#floating point data
-	#''help''		#PHA
-	bnext = 0
-	sign = 1
-	literal = False
 
-	if argstring[bnext] == "-":
-		sign = -1
-		bnext += 1
-	elif argstring[bnext] == "+":
-		bnext += 1
-		
-	if argstring[bnext] == "'": #octal
-		bnext += 1
-		if argstring[bnext] == "'": #alphanumeric
-			bnext += 1
-			t = "str"
-			lambdaparse = lambda x,y=bnext : [ord(x) | 0x80 for x in x[y:-2]] #patches in ASR33 converion of strings
-		else:
-			t = "oct"
-			lambdaparse = lambda x,y=bnext,s=sign : int(x[y:],8) * s
-	elif argstring[bnext] == "h": #hex
-		bnext += 1
-		t = "hex"
-		lambdaparse = lambda x,y=bnext,s=sign : int(x[y:],16) * s
-		
-	elif argstring[bnext] == "*": #current
-		bnext += 1
-		if bnext < len(argstring):
-			if argstring[bnext] == "*": #"to be filled in at runtime"
-				bnext += 1
-				t = "ip"
-				lambdaparse = lambda x : 0 #"This address is set during assembly to an abso1ute address of 00000."
-			else:
-				t = "ip"
-				lambdaparse = lambda x,y =curr_address,s=sign : y * s
-		else:
-			t = "ip"
-			lambdaparse = lambda x,y =curr_address,s=sign : y * s
-
-	elif argstring[bnext:] in SYMBOLS:
-		t = "label"
-		lambdaparse = lambda x,y=bnext,s=sign  : SYMBOLS[x[y:]][1] * s
-		
-	else: #bare number.. still more work
-		if "." in argstring: #float or fixed
-			if "E" in argstring or "e" in argstring: #float
-				t = "float"
-				lambdaparse = lambda  x  : float(x)
-			else: #fixed
-				t = "fixed"
-				lambdaparse = lambda  x  : Decimal(x)
-		else:#decimal
-			t = "dec"
-			lambdaparse = lambda  x: int(x)
-	return (t,lambdaparse)
-	
-	
-def parsearg(curr_address,argstring):
-	argstring = argstring.strip()
-	argparts = re.split("(\+|\-)",argstring)
-	total = lambda :0
-	mth = lambda x,y : x()+y()
-	for i in range(len(argparts)):
-		if argparts[i] != "":
-			if argparts[i] in ["+","-"]:
-				if argparts[i] == "-":
-					mth = lambda x,y : x()-y()
-				else:
-					mth = lambda x,y : x()+y()
-			else:
-			
-				t,f = detectarg(curr_address, argparts[i])
-				if t == 'str':
-					return lambda x=f : x(argstring)
-				else:
-					total = lambda x=total, y = lambda x=f,y=argparts[i]: x(y), z=mth: z(x, y)
-	return total
 
 
 
@@ -245,8 +160,8 @@ def asm_pass_1(ll,base_address=0):
 					elif op == "ORG":
 						r_flag = True
 						try:
-							cur_address =parsearg(cur_address,addridx)()
-							program_listing.append((lnum,cur_address,op, LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ) | ( LOADER_BITMASKS["R_FLAG"] * r_flag ) , lambda x=cur_address, y=addridx:  [parsearg(x,y)() ] ))
+							cur_address =parsearg(cur_address,SYMBOLS,addridx)()
+							program_listing.append((lnum,cur_address,op, LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ) | ( LOADER_BITMASKS["R_FLAG"] * r_flag ) , lambda x=cur_address, y=addridx:  [parsearg(x,SYMBOLS,y)() ] ))
 							handled = True
 							continue
 							
@@ -275,7 +190,7 @@ def asm_pass_1(ll,base_address=0):
 					elif op == "DATA":
 						r_flag = True
 	#					for i in addridx.split(","): #fixme, this syntax detection is broken
-						data = parsearg(cur_address,addridx)()
+						data = parsearg(cur_address,SYMBOLS,addridx)()
 						handled = True
 						if isinstance(data,list):
 							for d in range(0,len(data),2):
@@ -330,7 +245,7 @@ def asm_pass_1(ll,base_address=0):
 							if int(idx):
 								idx = True
 
-						program_listing.append((lnum,cur_address,"DATA", LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag )|LOADER_BITMASKS["EAC"] ,lambda x=cur_address,y=val:[parsearg(x,y)()]))
+						program_listing.append((lnum,cur_address,"DATA", LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag )|LOADER_BITMASKS["EAC"] ,lambda x=cur_address,y=val:[parsearg(x,SYMBOLS,y)()]))
 						handled = True
 						continue
 						
@@ -340,7 +255,7 @@ def asm_pass_1(ll,base_address=0):
 						i_flag = True
 					if addr[0] == "=":
 						x_flag = True
-						program_listing.append((lnum,cur_address,op,(MREF_OPCODES[op] << 17 ) | LOADER_FORMATS[LITERAL_LOAD][1]| ( LOADER_BITMASKS["X_FLAG"] * x_flag )| ( LOADER_BITMASKS["R_FLAG"] * r_flag ), lambda x=cur_address,y=addr[1:]: [parsearg(x,y)()]))
+						program_listing.append((lnum,cur_address,op,(MREF_OPCODES[op] << 17 ) | LOADER_FORMATS[LITERAL_LOAD][1]| ( LOADER_BITMASKS["X_FLAG"] * x_flag )| ( LOADER_BITMASKS["R_FLAG"] * r_flag ), lambda x=cur_address,y=addr[1:]: [parsearg(x,SYMBOLS,y)()]))
 						handled = True
 					else:
 						r_flag = True
@@ -352,7 +267,7 @@ def asm_pass_1(ll,base_address=0):
 							if int(idx):
 								x_flag = True
 
-						program_listing.append((lnum,cur_address,op, (MREF_OPCODES[op] << 17 ) | LOADER_FORMATS[MEMREF_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag )| ( LOADER_BITMASKS["I_FLAG"] * i_flag )| ( LOADER_BITMASKS["R_FLAG"] * r_flag ), lambda x=cur_address,y=addr: [parsearg(x,y)()]))
+						program_listing.append((lnum,cur_address,op, (MREF_OPCODES[op] << 17 ) | LOADER_FORMATS[MEMREF_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag )| ( LOADER_BITMASKS["I_FLAG"] * i_flag )| ( LOADER_BITMASKS["R_FLAG"] * r_flag ), lambda x=cur_address,y=addr: [parsearg(x,SYMBOLS,y)()]))
 						handled = True
 
 					cur_address += 1
@@ -361,7 +276,7 @@ def asm_pass_1(ll,base_address=0):
 					shift_count = 0
 					if addridx and addridx.strip() != "":
 						try:
-							shift_count = parsearg(cur_address,addridx)()
+							shift_count = parsearg(cur_address,SYMBOLS,addridx)()
 						except Exception as  err:
 							print("****\n%s:%d generated the following error\n***" % (filename,lnum+1))
 							traceback.print_exc()
@@ -395,7 +310,7 @@ def asm_pass_1(ll,base_address=0):
 
 					opcode = (IO_OPCODES[op][0] << 12) | (index_bit << 11) | (indirect_bit << 10) | (map_bit << 9) | (wait_bit << 6) | (IO_OPCODES[op][1] << 7)
 						
-					program_listing.append((lnum,cur_address,"DATA", LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ) | opcode,lambda x=cur_address,y=unit:[parsearg(x,y)()]))
+					program_listing.append((lnum,cur_address,"DATA", LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ) | opcode,lambda x=cur_address,y=unit:[parsearg(x,SYMBOLS,y)()]))
 					handled = True
 					cur_address += 1
 
@@ -404,14 +319,14 @@ def asm_pass_1(ll,base_address=0):
 					augment_code = 0
 					if addridx:
 						try:
-							augment_code = parsearg(addridx)
+							augment_code = parsearg(SYMBOLS,addridx) #fixme borken
 						except Exception as  err:
 							print("****\%s:%d generated the following error" % (filename,lnum+1))
 							traceback.print_exc()
 							sys.exit(-1)
 
 					opcode = (INT_OPCODES[op] << 12) | augment_code
-					program_listing.append((lnum,cur_address,"DATA", LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ),lambda x=opcode, y=augment_code, z=cur_address:[parsearg(z, y)()|x]))
+					program_listing.append((lnum,cur_address,"DATA", LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ),lambda x=opcode, y=augment_code, z=cur_address:[parsearg(z,SYMBOLS, y)()|x]))
 					handled = True
 					cur_address += 1
 					
