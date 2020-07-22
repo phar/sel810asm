@@ -137,7 +137,7 @@ if __name__ == '__main__':
 			(opcode, nmemonic, indir,  args, comment, second_word, second_word_hint) = SELDISASM(val)
 			buf2 = "0x%04x\t%06o\t%s%s\t%s" % (i,val,nmemonic, indir, args)
 			if comment:
-				print("0x%04x\t%06o\t%s\t\t*%s" % (i,val,buf2,comment))
+				print("%s\t\t*%s" % (buf2,comment))
 			else:
 				print("%s" % (buf2))
 		else:
