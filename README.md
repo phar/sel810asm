@@ -32,4 +32,8 @@ pseudo opcode can span the two
 
 I dont know what the symbols are for the loader libararies, so, i dont account for them in the assembler at all..
 
+#things i dont support
+NAME's (library)
+CALL's 
+libraries
 </pre>
