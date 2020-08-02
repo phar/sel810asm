@@ -78,10 +78,6 @@ def decompose_asm(l):
 	l = l.replace("\n","")
 	l = list(l)
 	ismacroinst = False
-	
-	if 1 in [c in [ord(x) for x in l] for c in FORBIDDEN_CHARS]
-		print("illegal caracters on line %s:%d fatal" % (filename,lnum))
-		exit()
 			
 	if len(l):
 		if l[0] == "*":
@@ -162,6 +158,11 @@ def asm_pass_1(ll,base_address=0):
 		current_offset =0
 		l = ll[lnum]
 		lnum += 1
+		
+		if 1 in [c in [ord(x) for x in l] for c in FORBIDDEN_CHARS]
+			print("illegal caracters on line %s:%d fatal" % (filename,lnum))
+			exit()
+		
 		if l.strip() != "":
 			(label,ismacroinst,op, indirect_bit, addridx, comment) = decompose_asm(l)
 			if op is not None or label is not None:
