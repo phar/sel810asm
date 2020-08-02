@@ -65,11 +65,24 @@ def octprint(val):
 	return "%08o" % (val)
 	
 
+
+NOT_FORBIDDEN_CHARS = [ord(x) for x in list("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\r\n\b\x08[\\]^_ !\"#$%&'()*+,-./:;<=>?")]
+FORBIDDEN_CHARS = []
+for c in range(0,0xff):
+	if c not in NOT_FORBIDDEN_CHARS:
+		FORBIDDEN_CHARS.append(c)
+
+
 def decompose_asm(l):
 
 	l = l.replace("\n","")
 	l = list(l)
 	ismacroinst = False
+	
+	if 1 in [c in [ord(x) for x in l] for c in FORBIDDEN_CHARS]
+		print("illegal caracters on line %s:%d fatal" % (filename,lnum))
+		exit()
+			
 	if len(l):
 		if l[0] == "*":
 			return (None,ismacroinst,None,False,None,None)
@@ -249,12 +262,11 @@ def asm_pass_1(ll,base_address=0):
 									continue
 									
 								except Exception as  err:
-									print("****\n%s:%d generated the following error\n***" % (filename,lnum+1))
+									print("****\n%s:%d generated the following error\n***" % (filename,lnum))
 									traceback.print_exc()
 									sys.exit(-1)
 
 							elif op in ["***", "ZZZ"]:
-								#fixme parse args
 								if len(addridx.split(",")) == 1:
 									val = addridx
 									
@@ -264,36 +276,41 @@ def asm_pass_1(ll,base_address=0):
 									if int(idx):
 										idx = True
 										
-								#fixme
-	#							program_listing.append((lnum,op, (indirect_bit<<14), lambda x=cur_address,y=val:  [parsearg(x,SYMBOLS,y)()],supress_output))
-			#					program_listing.append((lnum,op, (indirect_bit<<14), lambda x,y=val:  [parsearg(y)()]),supress_output)
+								program_listing.append((lnum,cur_address,op, (indirect_bit<<14), lambda x=cur_address,y=val: [parsearg(x,SYMBOLS,y)()],supress_output))
 								handled = True
 								continue
 
 							elif op == "DATA":
 								r_flag = True
-			#					for i in addridx.split(","): #fixme, this syntax detection is broken
-								data = parsearg(cur_address,SYMBOLS,addridx)()
-								handled = True
-								if isinstance(data,list):
-									for d in range(0,len(data),2):
-										try:
-											r =  (data[d] << 8) | (data[d+1])
-										except IndexError:
-											r = data[d]
-										program_listing.append((lnum,cur_address,op, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=r:[x],supress_output))
-										cur_address += 1
-									#fixme .. leftover byte
+								
+								if "," not in addridx or addridx[:2] == "''":
+									lst = [addridx]
 								else:
-									program_listing.append((lnum,cur_address,op, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=data:[x],supress_output))
-									cur_address += 1
+									lst = addridx.split(",")
+									
+								for li in lst: #fixme, this syntax detection is broken
+									data = parsearg(cur_address,SYMBOLS,li)()
+									if isinstance(data,list):
+										for d in range(0,len(data),2):
+											try:
+												r =  (data[d] << 8) | (data[d+1])
+											except IndexError:
+												r = data[d]
+											program_listing.append((lnum,cur_address,op, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=r:[x],supress_output))
+											cur_address += 1
+										#fixme .. leftover byte
+									else:
+										program_listing.append((lnum,cur_address,op, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=data:[x],supress_output))
+										cur_address += 1
+									
+								handled = True
 								continue
 
 							elif op == "EQU":
 								try:
 									SYMBOLS[label] = ("int",parsearg(cur_address, addridx)()) #first pass only
 								except Exception as  err:
-									print("****\n%s:%d generated the following error\n***" % (filename,lnum+1))
+									print("****\n%s:%d generated the following error\n***" % (filename,lnum))
 									traceback.print_exc()
 									sys.exit(-1)
 								continue
@@ -361,7 +378,7 @@ def asm_pass_1(ll,base_address=0):
 								try:
 									shift_count = parsearg(cur_address,SYMBOLS,addridx)()
 								except Exception as  err:
-									print("****\n%s:%d generated the following error\n***" % (filename,lnum+1))
+									print("****\n%s:%d generated the following error\n***" % (filename,lnum))
 									traceback.print_exc()
 									sys.exit(-1)
 
@@ -404,7 +421,7 @@ def asm_pass_1(ll,base_address=0):
 								try:
 									augment_code = parsearg(SYMBOLS,addridx) #fixme borken
 								except Exception as  err:
-									print("****\%s:%d generated the following error" % (filename,lnum+1))
+									print("****\%s:%d generated the following error" % (filename,lnum))
 									traceback.print_exc()
 									sys.exit(-1)
 
@@ -414,7 +431,7 @@ def asm_pass_1(ll,base_address=0):
 							cur_address += 1
 							
 						else:
-							print("unhandled opcode [%s] on %s:%d in first pass.. you should fix that.. fatal" % (op,filename,lnum+1))
+							print("unhandled opcode [%s] on %s:%d in first pass.. you should fix that.. fatal" % (op,filename,lnum))
 							exit()
 
 						if handled == False:

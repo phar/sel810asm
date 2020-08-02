@@ -36,4 +36,8 @@ I dont know what the symbols are for the loader libararies, so, i dont account f
 NAME's (library)
 CALL's 
 libraries
+floats
+doubles
+
+#notes
 </pre>

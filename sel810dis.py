@@ -7,7 +7,8 @@ def ceu_breakdown(hint, word):
 	outstring = []
 	for n,v in CEU_SECOND_WORDS[hint].items():
 		if n == 'wordmask':
-			pass
+			if (word & v[0]) != v[0]:
+				raise ValueError #still temporary
 		else:
 			if (v[0] & word) >> v[1]:
 				outstring.append(n)
@@ -19,7 +20,8 @@ def teu_breakdown(hint, word):
 	outstring = []
 	for n,v in TEU_SECOND_WORDS[hint].items():
 		if n == 'wordmask':
-			pass
+			if (word & v[0]) != v[0]:
+				raise ValueError #still temporary
 		else:
 			if (v[0] & word) >> v[1]:
 				outstring.append(n)

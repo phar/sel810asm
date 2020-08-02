@@ -1,5 +1,14 @@
 import re
 
+from math import floor, log10
+
+def fexp(f):
+    return int(floor(log10(abs(f)))) if f != 0 else 0
+
+def fman(f):
+    return f/10**fexp(f)
+    
+
 def detectarg(curr_address, symbols, argstring):
 	#'003003      #octal
 	#+'003003      #octal
@@ -53,7 +62,7 @@ def detectarg(curr_address, symbols, argstring):
 		t = "label"
 		lambdaparse = lambda x,y=bnext,s=sign  : symbols[x[y:]][1] * s
 		
-	else: #bare number.. still more work
+	else: #bare number.. still more work  these need to be packed into a ye-olde format as words
 		if "." in argstring: #float or fixed
 			if "E" in argstring or "e" in argstring: #float
 				t = "float"
