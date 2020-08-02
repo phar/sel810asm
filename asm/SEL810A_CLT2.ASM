@@ -9,7 +9,7 @@
 * PRESS WARN SW (HI TEMP) BESIDE WATCHDOG      *
 * RELAY AND PROGRAM WILL PRINT W.              *
 * PRESS OFF SW CHI TEMP SHUTDOWN> BESIDE WATCH *
-* DOG RELAY AND PROGRAM WILL PRINT o.          *
+* DOG RELAY AND PROGRAM WILL PRINT.            *
 *                                              *
 * LOCATION '6200                               *
 * CHECK SWITCH CONT.ACTS AND ASSOC. LOGIC      *
@@ -73,7 +73,7 @@ RECL LAA  ='151000                  PRINT R
      BRU  STRT
 AOP  HLT
      IMS  CNTA                      COUNTER F/DLY
-     BRU  *+1                       CHANGE TO BRU -1 F/DLY MIKE:check this
+     BRU  *+1                       CHANGE TO BRU -1 F/DLY
      AOP  1, W
      IMS  CNTR
      BRU* AOP
