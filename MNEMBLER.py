@@ -233,8 +233,22 @@ def asm_pass_1(filename,base_address=0):
 								continue
 								
 							elif op == "BSS":
-								print("uh.. i didnt actually handle this pseudo opcode (%s), its better that i tell you then not tell you: %s:%d" % (op,filename,lnum))
-								exit()
+								args = addridx.split(" ")
+								#FIXME, arg[1] should be an optional addres.. but.. i dont think i handle it at all
+								for d in range(0,parsearg(cur_address,SYMBOLS, args[0])(),2):
+									program_listing.append((lnum,cur_address,op, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=0:[x],supress_output))
+									cur_address += 1
+								handled = True
+								continue
+
+							elif op == "BES":
+								args = addridx.split(" ")
+								#FIXME, arg[1] should be an optional addres.. but.. i dont think i handle it at all
+								for d in range(0,parsearg(cur_address,SYMBOLS, args[0])(),2):
+									program_listing.append((lnum,cur_address,op, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=0:[x],supress_output))
+									cur_address += 1
+								SYMBOLS[label] = ("int",cur_address) #adjust the label to point to the end of the block
+								handled = True
 								continue
 
 							elif op == "MACR":
@@ -322,7 +336,7 @@ def asm_pass_1(filename,base_address=0):
 
 							elif op == "EQU":
 								try:
-									SYMBOLS[label] = ("int",parsearg(cur_address, addridx)()) #first pass only
+									SYMBOLS[label] = ("int",parsearg(cur_address, SYMBOLS, addridx)()) #first pass only
 								except Exception as  err:
 									print("****\n%s:%d generated the following error\n***" % (filename,lnum))
 									traceback.print_exc()
