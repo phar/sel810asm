@@ -90,9 +90,25 @@ def decompose_asm(l):
 		if len(l) > 10:
 			l[9] = "\0"
 			
-		if len(l) > 25:
-			l.insert(24,"\0")
-
+		in_quotes = False
+		qc = 0
+		for i in range(13, len(l)): #this matches the manual much better, doesnt actually mention quotes
+			if in_quotes:
+				if l[i] == "'":
+					qc -= 1
+			if qc == 0:
+				in_quotes = False
+			else:
+				if l[i] == "'":
+					qc += 1
+					if qc == 2:
+						in_quotes = True
+					
+			if in_quotes == 0:
+				if l[i] == " ":
+					l[i] = "\0"
+					break
+					
 		(label, op, addridx, comment) = (None,None,None,None)
 		
 		chunkdat = [x for x in "".join(l).split("\00")]
@@ -110,20 +126,16 @@ def decompose_asm(l):
 			label = None
 		else:
 			label = label.strip()
-		
+
+		if comment:
+			comment = comment.strip()
+
 		indirect_bit = False
 		
 		if op != None:
 			op = op.strip()
 			if op.strip() != "":
-				if op == "DATA":
-					if comment != None:
-						addridx += comment
-						if "''" not in addridx:
-							addridx = addridx.split(" ")[0] #this is a bit of a hack for a special case of data with a comment, but not a long line
-					comment = None
-					
-				elif op[-1] == "*":
+				if op[-1] == "*":
 					op = op[:-1]     #indirect instruction
 					indirect_bit = True
 
@@ -298,7 +310,6 @@ def asm_pass_1(filename,base_address=0):
 												r = data[d]
 											program_listing.append((lnum,cur_address,op, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=r:[x],supress_output))
 											cur_address += 1
-										#fixme .. leftover byte
 									else:
 										program_listing.append((lnum,cur_address,op, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=data:[x],supress_output))
 										cur_address += 1
