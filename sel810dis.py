@@ -5,7 +5,7 @@ import sys
 
 def ceu_breakdown(hint, word):
 	outstring = []
-	for n,v in CEU_SECOND_WORDS[hint].items():
+	for n,v in CEU_SECOND_WORDS[hint[0]].items(): #fixme hint[0] is just assumed but i need to work the list to figure out the right one
 		if n == 'wordmask':
 			if (word & v[0]) != v[0]:
 				raise ValueError #still temporary
@@ -18,7 +18,7 @@ def ceu_breakdown(hint, word):
 	
 def teu_breakdown(hint, word):
 	outstring = []
-	for n,v in TEU_SECOND_WORDS[hint].items():
+	for n,v in TEU_SECOND_WORDS[hint[0]].items():#fixme hint[0] is just assumed but i need to work the list to figure out the right one
 		if n == 'wordmask':
 			if (word & v[0]) != v[0]:
 				raise ValueError #still temporary
@@ -137,6 +137,7 @@ if __name__ == '__main__':
 	for val in  binfile:
 		if second_word == False:
 			(opcode, nmemonic, indir,  args, comment, second_word, second_word_hint) = SELDISASM(val)
+#			second_word_hint = None #fixme
 			buf2 = "0x%04x\t%06o\t%s%s\t%s" % (i,val,nmemonic, indir, args)
 			if comment:
 				print("%s\t\t*%s" % (buf2,comment))

@@ -1,5 +1,5 @@
 *************************************************
-* 1/0 CONTROLLER DIAGNOSTIC
+* I/O CONTROLLER DIAGNOSTIC
 *
 * 1= AOP 44, AIP 46                     P1-P5
 * 2= AOP 45, AIP 47                     P1-P5
@@ -11,11 +11,11 @@
 * 8= AOP 51, AIP 53                     P3-P7
 * C=CLEAR LCS MODE
 * G=INHIBIT HALT ON ERROR
-* H=HALT PROGRAM ON EROR • 'A' '=OK ' '8' '=ERO R
+* H=HALT PROGRAM ON EROR • 'A' '=OK ' '8' '=EROR'
 * L=LCS..1 TEST BIT WITH CONTROL PANEL SWITCH
 * P=PRINT TEST RESULTS
 * PREPARED BY CARL L THOMPSON 4-15-76
-********************************************'****
+*************************************************
      REL
      DATA '10001
      CEU  1,W

@@ -6,7 +6,7 @@ CARRIAGE_RETURN = 0x8d
 LINE_FEED = 0x8a
 
 class RS227():
-	def __init__(self,file, feeder_code=b"\xff", trailer_code=b"\x00"):
+	def __init__(self,file, feeder_code=b"\x00", trailer_code=b"\xff"):
 		self.filename = file
 		
 		self.fp = None
@@ -64,11 +64,15 @@ class RS227():
 		self.fp.write(b"\x8d\x8a");
 		for i in range(0,len(contents),108):
 			self.fp.write(b"\xff");
-			self.fp.write(contents[i:i+108])
+			chunk =contents[i:i+108]
+			while len(chunk) < 108:
+				chunk += b'\x00'
+			self.fp.write(chunk)
+			crc = self._crc(struct.unpack(">%dH" % (len(chunk)/2),chunk))
+			self.fp.write(struct.pack(">h",crc))
 			self.fp.write(b"\x8d\x8a");
-			crc = self._crc(struct.unpack(">%dH" % (len(contents[i:i+108])/2),contents[i:i+108]))
-			self.fp.write(struct.pack(">H",crc))
-			
+		self.fp.write(b"\x00");
+
 		for i in range(trailer_len):
 			self.fp.write(self.trailer_code)
 

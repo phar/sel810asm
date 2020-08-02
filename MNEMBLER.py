@@ -235,6 +235,7 @@ def asm_pass_1(filename,base_address=0):
 							elif op == "BSS":
 								args = addridx.split(" ")
 								#FIXME, arg[1] should be an optional addres.. but.. i dont think i handle it at all
+								#am i expected to emit an ORG?
 								for d in range(0,parsearg(cur_address,SYMBOLS, args[0])(),2):
 									program_listing.append((lnum,cur_address,op, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=0:[x],supress_output))
 									cur_address += 1
@@ -246,8 +247,8 @@ def asm_pass_1(filename,base_address=0):
 								#FIXME, arg[1] should be an optional addres.. but.. i dont think i handle it at all
 								for d in range(0,parsearg(cur_address,SYMBOLS, args[0])(),2):
 									program_listing.append((lnum,cur_address,op, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=0:[x],supress_output))
+									SYMBOLS[label] = ("int",cur_address) #adjust the label to point to the end of the block
 									cur_address += 1
-								SYMBOLS[label] = ("int",cur_address) #adjust the label to point to the end of the block
 								handled = True
 								continue
 
@@ -495,9 +496,9 @@ for l in PROGRAM_LISTING:
 				if a[1] == l[1]:
 					label = s
 
-			val = l[3]
+			val = l[3] | v
 			if not l[-1]:
-				print("%04x\t%08o\t%s\t%s\t\t\t" % (l[1],(l[3]|v ),label,ll[l[0]-1].strip()))
+				print("%04x\t%08o\t%s\t%s\t\t\t" % (l[1],(val ),label,ll[l[0]-1].strip()))
 			f.write(struct.pack("3B", (val & 0xff0000) >> 16, (val & 0xff00) >> 8,(val & 0xff) ))
 	else:
 		f.write(b"\x00\x00\x00") #placeholder for bad op
