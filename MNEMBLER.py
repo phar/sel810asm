@@ -231,6 +231,11 @@ def asm_pass_1(filename,base_address=0):
 							elif op == "ABS":
 								ADDR_MODE = MODE_ABSOLUTE
 								continue
+								
+							elif op == "BSS":
+								print("uh.. i didnt actually handle this pseudo opcode (%s), its better that i tell you then not tell you: %s:%d" % (op,filename,lnum))
+								exit()
+								continue
 
 							elif op == "MACR":
 								in_macro_name = label
