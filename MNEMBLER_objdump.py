@@ -89,7 +89,6 @@ while idx < len(full_tape):
 		if opcode == 0: #augmented opcodes
 			augmentcode = (val & 0x3f)
 			for nme,(x,augcode) in AUGMENTED_OPCODES.items():
-#				print(augcode,augmentcode)
 				if augmentcode  ==  augcode:
 					printline(l,full_tape[idx],nme,"")
 					handled = True
@@ -117,14 +116,11 @@ while idx < len(full_tape):
 		r =   (val & 0x200000) >> 21
 		opcode = (val & 0x1e0000) >> 17
 		isliteral = val &0x10000
-
-
 		if(isliteral):
 			literal = (val & 0xffff)
 			if opcode == 0: #augmented opcodes
 				augmentcode = (val & 0x3f)
 				for nme,(x,augcode) in AUGMENTED_OPCODES.items():
-#					print(augcode,augmentcode)
 					if augmentcode  ==  augcode:
 						printline(l,full_tape[idx],nme,"")
 						handled = True

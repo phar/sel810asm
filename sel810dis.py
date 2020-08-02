@@ -29,7 +29,6 @@ def teu_breakdown(hint, word):
 	return ",".join(outstring)
 	
 	
-	
 def SELDISASM(opcode):
 	op = (opcode & 0xf000) >> 12
 	nmemonic = ""

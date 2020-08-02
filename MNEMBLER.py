@@ -498,7 +498,8 @@ for l in PROGRAM_LISTING:
 
 			val = l[3] | v
 			if not l[-1]:
-				print("%04x\t%08o\t%s\t%s\t\t\t" % (l[1],(val ),label,ll[l[0]-1].strip()))
+				octval = ("%+010o" % val)[2:] #dirty dirty dirty
+				print("%04x\t%s\t%s\t%s\t\t\t" % (l[1],octval,label,ll[l[0]-1].strip()))
 			f.write(struct.pack("3B", (val & 0xff0000) >> 16, (val & 0xff00) >> 8,(val & 0xff) ))
 	else:
 		f.write(b"\x00\x00\x00") #placeholder for bad op
