@@ -92,27 +92,25 @@ def decompose_asm(l):
 			
 		in_quotes = False
 		qc = 0
-		for i in range(13, len(l)): #this matches the manual much better, doesnt actually mention quotes
+		for i in range(0, len(l)): #this matches the manual much better, doesnt actually mention quotes
 			if in_quotes:
 				if l[i] == "'":
 					qc -= 1
-			if qc == 0:
-				in_quotes = False
+				if qc == 0:
+					in_quotes = False
 			else:
 				if l[i] == "'":
 					qc += 1
-					if qc == 2:
-						in_quotes = True
+				if qc == 2:
+					in_quotes = True
 					
-			if in_quotes == 0:
-				if l[i] == " ":
-					l[i] = "\0"
-					break
+			if in_quotes == 0 and l[i] == " " and (i > 13):
+				l[i] = "\0"
+				break
 					
 		(label, op, addridx, comment) = (None,None,None,None)
 		
 		chunkdat = [x for x in "".join(l).split("\00")]
-		
 		if len(chunkdat) == 4:
 			(label, op, addridx, comment) = chunkdat
 		elif  len(chunkdat) == 3:
@@ -128,7 +126,7 @@ def decompose_asm(l):
 			label = label.strip()
 
 		if comment:
-			comment = comment.strip()
+			comment = comment.lstrip()
 
 		indirect_bit = False
 		
@@ -294,13 +292,13 @@ def asm_pass_1(filename,base_address=0):
 
 							elif op == "DATA":
 								r_flag = True
-								
+
 								if "," not in addridx or addridx[:2] == "''":
 									lst = [addridx]
 								else:
 									lst = addridx.split(",")
 									
-								for li in lst: #fixme, this syntax detection is broken
+								for li in lst:
 									data = parsearg(cur_address,SYMBOLS,li)()
 									if isinstance(data,list):
 										for d in range(0,len(data),2):
