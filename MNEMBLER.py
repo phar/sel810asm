@@ -97,7 +97,6 @@ def decompose_asm(l):
 		
 		chunkdat = [x for x in "".join(l).split("\00")]
 		
-		
 		if len(chunkdat) == 4:
 			(label, op, addridx, comment) = chunkdat
 		elif  len(chunkdat) == 3:
@@ -116,17 +115,17 @@ def decompose_asm(l):
 		
 		if op != None:
 			op = op.strip()
-			
-			if op == "DATA":
-				if comment != None:
-					addridx += comment
-					if "''" not in addridx:
-						addridx = addridx.split(" ")[0] #this is a bit of a hack for a special case of data with a comment, but not a long line
-				comment = None
-				
-			elif op[-1] == "*":
-				op = op[:-1]     #indirect instruction
-				indirect_bit = True
+			if op.strip() != "":
+				if op == "DATA":
+					if comment != None:
+						addridx += comment
+						if "''" not in addridx:
+							addridx = addridx.split(" ")[0] #this is a bit of a hack for a special case of data with a comment, but not a long line
+					comment = None
+					
+				elif op[-1] == "*":
+					op = op[:-1]     #indirect instruction
+					indirect_bit = True
 
 		if addridx:
 			addridx = addridx.strip()
@@ -159,7 +158,7 @@ def asm_pass_1(filename,base_address=0):
 		l = ll[lnum]
 		lnum += 1
 		
-		if 1 in [c in [ord(x) for x in l] for c in FORBIDDEN_CHARS]
+		if 1 in [c in [ord(x) for x in l] for c in FORBIDDEN_CHARS]:
 			print("illegal caracters on line %s:%d fatal" % (filename,lnum))
 			exit()
 		
@@ -328,7 +327,7 @@ def asm_pass_1(filename,base_address=0):
 									if int(idx):
 										idx = True
 
-								program_listing.append((lnum,cur_address,"DATA", LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag )|LOADER_BITMASKS["DAC"] ,lambda x=cur_address,y=val:[parsearg(x,y)()],supress_output))
+								program_listing.append((lnum,cur_address,"DATA", LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag )|LOADER_BITMASKS["DAC"] ,lambda x=cur_address,y=val:[parsearg(x,SYMBOLS,y)()],supress_output))
 								handled = True
 								cur_address += 1
 								continue
@@ -447,7 +446,7 @@ def load_file(filename):
 
 filename = sys.argv[1]
 
-
+ll = load_file(filename) #this is a hack hjust to print the assembler line
 #FIRST PASS
 PROGRAM_LISTING = asm_pass_1(filename)
 
