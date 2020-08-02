@@ -143,12 +143,12 @@ def get_unique_label():
 			raise ValueError
 	return s
 	
-def asm_pass_1(ll,base_address=0):
+def asm_pass_1(filename,base_address=0):
 	program_listing = []
 	cur_address = base_address
 	supress_output = False
 	in_macro_name = None
-
+	ll = load_file(filename)
 	lnum = 0
 	while(len(ll[lnum:])):
 		r_flag = False
@@ -440,13 +440,16 @@ def asm_pass_1(ll,base_address=0):
 	return program_listing
 	
 	
-		
+def load_file(filename):
+	f = open(filename)
+	ll = f.readlines()
+	return ll
+
 filename = sys.argv[1]
-f = open(filename)
-ll = f.readlines()
+
 
 #FIRST PASS
-PROGRAM_LISTING = asm_pass_1(ll)
+PROGRAM_LISTING = asm_pass_1(filename)
 
 fn = "%s.sym"  % ".".join(filename.split(".")[:-1])
 print("writing symbols %s" % fn)
