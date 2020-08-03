@@ -95,7 +95,7 @@ while idx < len(full_tape):
 		else:
 			for nme,nopcode in MREF_OPCODES.items():
 				if opcode  ==  nopcode:
-					printline(l,full_tape[idx],"%s%s" % (nme,indir),"'%06o%s" % (addr,postargs))
+					printline(l,full_tape[idx],"%s%s" % (nme,indir),"'%o%s" % (addr,postargs))
 					handled = True
 		idx += 1
 
@@ -127,7 +127,10 @@ while idx < len(full_tape):
 			else:
 				for nme,nopcode in MREF_OPCODES.items():
 					if opcode  ==  nopcode:
-						printline(l,full_tape[idx],"%s" % nme,"='%06o" % literal)
+						if literal & 0x8000:
+							printline(l,full_tape[idx],"%s" % nme,"='-%o" % (~(literal -1) & 0xffff))
+						else:
+							printline(l,full_tape[idx],"%s" % nme,"='%o" % literal)
 						handled = True
 
 		else:

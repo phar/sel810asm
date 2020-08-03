@@ -56,7 +56,7 @@ def SELDISASM(opcode):
 				addr     = opcode & 0x1ff
 				nmemonic = nme
 				
-				args = "'%06o" % addr
+				args = "'%o" % addr
 				if index:
 					args = args + ", 1"
 					
@@ -117,7 +117,7 @@ def SELDISASM(opcode):
 				
 	if nmemonic=="":
 		nmemonic = "DATA"
-		args = "'%06o" % opcode
+		args = "'%o" % opcode
 				
 	return (opcode, nmemonic, indir,  args,comment, second_word, second_word_hint)
 
