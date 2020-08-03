@@ -497,7 +497,7 @@ for l in PROGRAM_LISTING:
 					label = s
 
 			if v < 0:
-				val = l[3] | (abs(v) | 0x8000) #its a 16 bit value so to fix the sign bit 
+				val = l[3] | ((~abs(v) + 1)  & 0xffff)#its a 16 bit value so to fix the sign bit
 			else:
 				val = l[3] | v
 				
