@@ -332,7 +332,7 @@ def asm_pass_1(filename,base_address=0):
 
 							elif op == "EQU":
 								try:
-									args.append("'%06o" % addridx)
+									args.append(addridx)
 									SYMBOLS[label] = ("int",parsearg(cur_address, SYMBOLS, addridx)()) #first pass only
 								except Exception as  err:
 									print("****\n%s:%d generated the following error\n***" % (filename,lnum))
@@ -346,18 +346,18 @@ def asm_pass_1(filename,base_address=0):
 								
 								if len(addridx.split(",")) == 1:
 									val = addridx
-									args.append("'%06o" % val)
+									args.append(val)
 									
 								elif len(addridx.split(",")) == 2:    #fixme
 									(addr,idx) = addridx.split(",")
 									val = addr
-									args.append("'%06o" % val)
+									args.append(val)
 									if int(idx):
 										idx = True
 										args.append("1")
 								if comment:
 									args.append("#%s"%comment)
-								program_listing.append((lnum,cur_address,"DAC",indirect_bit, args, LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag )|LOADER_BITMASKS["DAC"] ,lambda x=cur_address,y=val:[parsearg(x,SYMBOLS,y)()],supress_output))
+								program_listing.append((lnum,cur_address,"DAC",indirect_bit, args, LOADER_FORMATS[MREF_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag )|LOADER_BITMASKS["DAC"] ,lambda x=cur_address,y=val:[parsearg(x,SYMBOLS,y)()],supress_output))
 								handled = True
 								cur_address += 1
 								continue
@@ -380,7 +380,7 @@ def asm_pass_1(filename,base_address=0):
 										
 								if comment:
 									args.append("#%s"%comment)
-								program_listing.append((lnum,cur_address,"EAC",args, LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag )|LOADER_BITMASKS["EAC"] ,lambda x=cur_address,y=val:[parsearg(x,SYMBOLS,y)()]),supress_output)
+								program_listing.append((lnum,cur_address,"EAC",args, LOADER_FORMATS[MREF_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag )|LOADER_BITMASKS["EAC"] ,lambda x=cur_address,y=val:[parsearg(x,SYMBOLS,y)()]),supress_output)
 								handled = True
 								continue
 								
@@ -451,7 +451,7 @@ def asm_pass_1(filename,base_address=0):
 									
 							elif  len(addridx.split(",")) == 3:
 								(unit, wait, index) = addridx.split(",")
-								args.append("'%o" % unit)
+								args.append(unit)
 
 								if index == "1":
 									index_bit = True
@@ -495,24 +495,114 @@ def asm_pass_1(filename,base_address=0):
 							program_listing.append((lnum,"ERROR",None,None,None,None,supress_output))
 	return (addr_mode,program_listing)
 	
+
+def asm_pass_2(object_code):
 	
+	idx = 0
+	absfile = {}
+	current_addr = 0
+	org_addr = 0
+	absfile[org_addr] = []
+	while idx < len(object_code):
+		v,ol = object_code[idx]
+		fmt = (0xc00000 & v) >> 22
+		val = v & 0x3fffff
+		handled = False
+		
+		if fmt == 0b00:
+			zeros = (val & 0x3f0000) >> 17
+			val = v & 0xffff
+			
+			print("%06o\t" % val, ol)
+			absfile[org_addr].append((val,ol))
+			handled = True
+			idx += 1
+			current_addr+=1
+
+		elif fmt == 0b01:
+			r =   (val & 0x200000) >> 21
+			x = (val & 0x100) >> 8
+			i = (val & 0x80) >> 7
+			addr = (val & 0xffff)
+			opcode = (val & 0x1e0000) >> 17
+			map = True #i dont know why it is but it is
+			
+			#map bit! #reloc bit #DAC #EAC FIXME
+			
+			print("%06o\t" % ((opcode << 12) | (x << 11) | (i << 10) |  (map << 9) |((addr + org_addr)  & 0x3fff)), ol)
+			
+			absfile[org_addr].append(((opcode << 12) | (x << 11) | (i << 10)  |  (map << 9)| ((addr + org_addr) & 0x3fff),ol) )
+			handled = True
+			idx += 1
+			current_addr+=1
+
+		elif fmt == 0b10:
+			idx += 1
+			current_addr+=1
+			cd = (0xc00000 & full_tape[idx]) >> 22
+			if cd == 0x00:
+				print("sub def")
+			elif cd == 0x01:
+				print("sub call")
+			elif cd == 0x02:
+				print("common def")
+			elif cd == 0x03:
+				print("common req")
+				
+
+		elif fmt == 0b11:
+			r =   (val & 0x200000) >> 21
+			opcode = (val & 0x1e0000) >> 17
+			isliteral = val &0x10000
+			
+			if(isliteral):
+				literal = (val & 0xffff)
+				if opcode == 0: #augmented opcodes
+					augmentcode = (val & 0x3f)
+					
+			else: #special action
+				address = (val & 0x7fff)
+				n = (val & 0x8000) >> 15
+				print("****",opcode)
+				if opcode==0:
+					print("set org")
+					current_addr = address
+					absfile[org_addr] = []
+
+				elif opcode == 1:
+					print("end")
+					return absfile
+		
+				handled = True
+			idx += 1
+			current_addr+=1
+
+		if not handled:
+			
+			print("------\t",ol)
+			
+			absfile[org_addr].append((0,ol))
+			
+	return absfile
+
 def load_file(filename):
 	f = open(filename)
 	ll = f.readlines()
+	f.close()
 	return ll
 
-filename = sys.argv[1]
+def write_symbols(filename):
+	fn = "%s.sym"  % filename
+	print("writing symbols %s" % fn)
+	f = open(fn, "w")
+	f.write(json.dumps(SYMBOLS))
+	f.close()
 
-#FIRST PASS
+
+filename = sys.argv[1]
 (addr_mode,program_listing) = asm_pass_1(filename)
 
-fn = "%s.sym"  % ".".join(filename.split(".")[:-1])
-print("writing symbols %s" % fn)
-f = open(fn, "w")
-f.write(json.dumps(SYMBOLS))
-f.close()
-
-
+write_symbols(".".join(filename.split(".")[:-1]))
 
 
 print("creating relocatable binary")
@@ -553,16 +643,32 @@ for (lnum,cur_address,op,indirect_bit,args,oparg,oparg_calc,supress) in program_
 	else:
 		relocatable_file.append((0x0,"ERROR!"))
 		print(l)
-f.close()
+
 
 
 
 if addr_mode == MODE_RELATIVE:
-	print("writing binary")
+	print("writing object binary")
 	fn = "%s.obj"  % ".".join(filename.split(".")[:-1])
 	f = open(fn, "wb")
 	for val,line in relocatable_file:
 		f.write(struct.pack("3B", (val & 0xff0000) >> 16, (val & 0xff00) >> 8,(val & 0xff) ))
 	f.close()
+	
 else:
+	print("lol i dont really know what im doing")
+	
+	print("running second pass on object output")
+	absolute_file = asm_pass_2(relocatable_file)
+	
+	print("writing absolute binary")
+	for ml,absf in absolute_file.items():
+		fn = "%s-ORG_%04x.bin"  % (".".join(filename.split(".")[:-1]), ml)
+		f = open(fn, "wb")
+		
+		for val,line in absf:
+			f.write(struct.pack(">H", val))
+			
+	f.close()
+
 	print("uh.. we dont really support absolute mode right now")

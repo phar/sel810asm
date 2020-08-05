@@ -1,4 +1,4 @@
-     ABS
+     REL
      SPB  PRNT
      HLT
 TTY  HLT
