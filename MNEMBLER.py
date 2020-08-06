@@ -342,7 +342,7 @@ def asm_pass_1(filename,base_address=0):
 								
 							elif op == "DAC": #not right fixme
 								idx = False
-								x_flag = True
+								x_flag = False
 								
 								if len(addridx.split(",")) == 1:
 									val = addridx
@@ -353,11 +353,15 @@ def asm_pass_1(filename,base_address=0):
 									val = addr
 									args.append(val)
 									if int(idx):
-										idx = True
+										x_flag = True
 										args.append("1")
+										
 								if comment:
 									args.append("#%s"%comment)
-								program_listing.append((lnum,cur_address,"DAC",indirect_bit, args, LOADER_FORMATS[MREF_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag )|LOADER_BITMASKS["DAC"] ,lambda x=cur_address,y=val:[parsearg(x,SYMBOLS,y)()],supress_output))
+								
+#								idx = True
+#								print("mooo",LOADER_BITMASKS["I_FLAG"] * idx)
+								program_listing.append((lnum,cur_address,"DAC",indirect_bit, args, LOADER_FORMATS[MREF_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag) |  ( LOADER_BITMASKS["I_FLAG"] * i_flag )|(0o13 << 17) ,lambda x=cur_address,y=val:[parsearg(x,SYMBOLS,y)()],supress_output))
 								handled = True
 								cur_address += 1
 								continue
@@ -380,7 +384,7 @@ def asm_pass_1(filename,base_address=0):
 										
 								if comment:
 									args.append("#%s"%comment)
-								program_listing.append((lnum,cur_address,"EAC",args, LOADER_FORMATS[MREF_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag )|LOADER_BITMASKS["EAC"] ,lambda x=cur_address,y=val:[parsearg(x,SYMBOLS,y)()]),supress_output)
+								program_listing.append((lnum,cur_address,"EAC",args, LOADER_FORMATS[MREF_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag ) |( LOADER_BITMASKS["I_FLAG"] * i_flag )|(0o17 << 17) ,lambda x=cur_address,y=val:[parsearg(x,SYMBOLS,y)()]),supress_output)
 								handled = True
 								continue
 								
@@ -521,17 +525,25 @@ def asm_pass_2(object_code):
 
 		elif fmt == 0b01:
 			r =   (val & 0x200000) >> 21
-			x = (val & 0x100) >> 8
-			i = (val & 0x80) >> 7
-			addr = (val & 0xffff)
+			x = (val & 0x10000) >> 16
+			i = (val & 0x8000) >> 15
+			addr = (val & 0x7fff)
 			opcode = (val & 0x1e0000) >> 17
 			map = True #i dont know why it is but it is
-			
 			#map bit! #reloc bit #DAC #EAC FIXME
-			
-			print("%06o\t" % ((opcode << 12) | (x << 11) | (i << 10) |  (map << 9) |((addr + org_addr)  & 0x3fff)), ol)
-			
-			absfile[org_addr].append(((opcode << 12) | (x << 11) | (i << 10)  |  (map << 9)| ((addr + org_addr) & 0x3fff),ol) )
+			if opcode == 0o13:
+				addr = (val & 0x3fff) | (x * 0x8000)  | (i * 0x4000)#14 bit
+				print("%06o\t" % addr, ol)
+				absfile[org_addr].append((addr, ol))
+				
+			elif opcode == 0o17: #im not sure this is right, if i did the indirect bit right in 0o13
+				addr = (val & 0x7fff) | (x * 0x8000)  | (i * 0x4000) #15 bit
+				print("%06o\t" % addr, ol)
+				absfile[org_addr].append((addr, ol))
+				
+			else:
+				print("%06o\t" % ((opcode << 12) | (x << 11) | (i << 10) |  (map << 9) |((addr + org_addr)  & 0x7fff)), ol)
+				absfile[org_addr].append(((opcode << 12) | (x << 11) | (i << 10) | (map << 9)| ((addr + org_addr) & 0x7fff),ol) )
 			handled = True
 			idx += 1
 			current_addr+=1
@@ -563,14 +575,14 @@ def asm_pass_2(object_code):
 			else: #special action
 				address = (val & 0x7fff)
 				n = (val & 0x8000) >> 15
-				print("****",opcode)
+#				print("****",opcode)
 				if opcode==0:
-					print("set org")
+#					print("set org")
 					current_addr = address
 					absfile[org_addr] = []
 
 				elif opcode == 1:
-					print("end")
+#					print("end")
 					return absfile
 		
 				handled = True
@@ -661,9 +673,10 @@ else:
 	print("running second pass on object output")
 	absolute_file = asm_pass_2(relocatable_file)
 	
-	print("writing absolute binary")
+	
 	for ml,absf in absolute_file.items():
 		fn = "%s-ORG_%04x.bin"  % (".".join(filename.split(".")[:-1]), ml)
+		print("writing absolute binary %s" % fn)
 		f = open(fn, "wb")
 		
 		for val,line in absf:
