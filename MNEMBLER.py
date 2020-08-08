@@ -24,6 +24,48 @@ MREF_LOAD = 1
 SUB_LOAD = 2
 SPECIAL_LOAD = 3
 
+
+def pack_data(type, data):
+	wordlist  = []
+
+	if type in ["oct","hex","dec"]:
+		if data < 0:
+			wordlist.append((~abs(data) + 1)  & 0xffff) #its a 16 bit value so to fix the sign bit
+		else:
+			wordlist.append(data)
+
+	elif type == 'str':
+		for d in range(0,len(data),2):
+			try:
+				r = ((data[d] | 0x80) << 8) | ((data[d+1] | 0x80)) # plus ASR33 bit
+			except IndexError:
+				r = (data[d] | 0x80)  << 8
+				
+			wordlist.append(r)
+			
+	elif type == 'float':
+		wordlist.append(0)
+		
+	elif type == 'double_float':
+		wordlist.append(0)
+		wordlist.append(0)
+
+	elif type == 'fixed_double':
+		wordlist.append(0)
+		wordlist.append(0)
+		
+	elif type == 'fixed_single':
+		wordlist.append(0)
+
+	elif type == 'dec':
+		wordlist.append(data & SEL_INT_MAX)
+
+
+	else:
+		pass #fixme
+	
+	return wordlist
+
 	
 NOT_FORBIDDEN_CHARS = [ord(x) for x in list("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\r\n\b\x08[\\]^_ !\"#$%&'()*+,-./:;<=>?")]
 FORBIDDEN_CHARS = []
@@ -178,8 +220,11 @@ def asm_pass_1(filename,base_address=0):
 						continue
 					else:
 						if label:
-							SYMBOLS[label] = ("int",cur_address)
-					
+							if label not in SYMBOLS:
+								SYMBOLS[label] = ("int",cur_address)
+							else:
+								print("****\n%s:%d duplicate symbol definition\n***" % (filename,lnum))
+								sys.exit(-1)
 					if op:
 						if op in PSEUDO_OPCODES:
 							if op == "REL":
@@ -191,6 +236,11 @@ def asm_pass_1(filename,base_address=0):
 								addr_mode = MODE_ABSOLUTE
 								continue
 								
+							elif op == "MAP":
+								print("oh jeeze, your trying to use an option i never really figured out, im just going to go ahead and bow out now")
+								sys.exit(-1)
+								continue
+													
 							elif op == "BSS":
 								args = addridx.split(" ")
 								#FIXME, arg[1] should be an optional addres.. but.. i dont think i handle it at all
@@ -274,14 +324,21 @@ def asm_pass_1(filename,base_address=0):
 									traceback.print_exc()
 									sys.exit(-1)
 
-							elif op in ["***", "ZZZ"]:
+							elif op == "***":
+								if comment:
+									args.append("#%s"%comment)
+									
+								program_listing.append((lnum,cur_address,op,indirect_bit,args, 0, lambda x=cur_address,y=val: [0],supress_output))
+								handled = True
+								
+							elif op == "ZZZ":
 								if len(addridx.split(",")) == 1:
 									val = addridx
 									
 								elif len(addridx.split(",")) == 2:
 									(addr,idx) = addridx.split(",")
 									val = addr
-									args.append("'%06o" % val)
+									args.append(val)
 									
 									if int(idx):
 										idx = True
@@ -294,51 +351,48 @@ def asm_pass_1(filename,base_address=0):
 
 							elif op == "DATA":
 								r_flag = True
-
-								if "," not in addridx or addridx[:2] == "''":
+								
+								if comment:
+									foobuff = ["# " + comment]
+								else:
+									foobuff = []
+									
+									
+								if "," not in addridx or addridx[:2] == "''":   #this whole section is a bit of a mess
 									lst = [addridx]
 								else:
 									lst = addridx.split(",")
-									
+
 								for li in lst:
-									data = parsearg(cur_address,SYMBOLS,li)()
-										
-									if isinstance(data,list):
-										foobuff = []
-										
-										if comment:
-											foobuff.append("#%s"%li + " " + comment)
-										else:
-											foobuff.append("#%s"%li + " ")
-
-										for d in range(0,len(data),2):
-											try:
-												r =  (data[d] << 8) | (data[d+1])
-											except IndexError:
-												r = data[d]
-											program_listing.append((lnum,cur_address,op,indirect_bit,["'%06o" % r]+foobuff, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=r:[x],supress_output))
-											cur_address += 1
-											foobuff = []
-
-									else:
-										args.append("'%06o" % data)
-										if comment:
-											args.append("#%s"%comment)
-										program_listing.append((lnum,cur_address,op,indirect_bit,args,LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=data:[x],supress_output))
-										cur_address += 1
+									(dtype,lambdaparser) = detectarg(cur_address,SYMBOLS,li)
+									data = parsearg(cur_address,SYMBOLS,li)()  #fixme, i think this breaks symbolic data
+									data = pack_data(dtype,data)
 									
+									if dtype in ["str"]:
+										if comment:
+											foobuff2 = ["#"+li+" - "+comment]
+										else:
+											foobuff2 = ["#"+li]
+
+										foobuff = []
+									else:
+										foobuff2 = []
+										
+									for d in data:
+										program_listing.append((lnum,cur_address,op,indirect_bit,["'%06o" % d]+foobuff2+foobuff, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=d:[x],supress_output))
+										cur_address += 1
+										foobuff = []
+										foobuff2 = []
+
 								handled = True
 								continue
 
 							elif op == "EQU":
-								try:
-									args.append(addridx)
+								if label not in SYMBOLS:
 									SYMBOLS[label] = ("int",parsearg(cur_address, SYMBOLS, addridx)()) #first pass only
-								except Exception as  err:
-									print("****\n%s:%d generated the following error\n***" % (filename,lnum))
-									traceback.print_exc()
+								else:
+									print("****\n%s:%d duplicate symbol definition\n***" % (filename,lnum))
 									sys.exit(-1)
-								continue
 								
 							elif op == "DAC": #not right fixme
 								idx = False
@@ -372,12 +426,12 @@ def asm_pass_1(filename,base_address=0):
 								x_flag= true
 								if len(addridx.split(",")) == 1:
 									val = addridx
-									args.append("'%06o" % val)
+									args.append(val)
 									 
 								elif len(addridx.split(",")) == 2: #fixme too
 									(addr,idx) = addridx.split(",")
 									val = addr
-									args.append("'%06o" % val)
+									args.append( val)
 									if int(idx):
 										idx = True
 										args.append("1")
@@ -623,14 +677,10 @@ for (lnum,cur_address,op,indirect_bit,args,oparg,oparg_calc,supress) in program_
 	if oparg != None:
 		for v in oparg_calc():
 			label = ""
+			
 			for s,a in SYMBOLS.items():
 				if a[1] == cur_address:
 					label = s
-
-			if v < 0:
-				val = oparg | ((~abs(v) + 1)  & 0xffff)#its a 16 bit value so to fix the sign bit
-			else:
-				val = oparg | v
 				
 			if indirect_bit:
 				indir = "*"
@@ -642,16 +692,36 @@ for (lnum,cur_address,op,indirect_bit,args,oparg,oparg_calc,supress) in program_
 			else:
 				label = label.ljust(4," ")
 				
-			if len(args) and args[-1][0] == "#":
-				testbuff = "%s %s%s %s" % (label,op, indir, ",".join(args[:-1]))
-				buf = "*"+args[-1][1:]
-				testbuff += buf.rjust(27 + (len(buf) - len(testbuff))," ")
+				
+			if isinstance(v,list):
+				for vv in v:
+					val = oparg | vv
+		
+					if len(args) and args[-1][0] == "#":
+						testbuff = "%s %s%s %s" % (label,op, indir, ",".join(args[:-1]))
+						buf = " *"+args[-1][1:]
+						testbuff += buf.rjust(27 + (len(buf) - len(testbuff))," ")
+					else:
+						testbuff = "%s %s%s %s" % (label,op, indir, ",".join(args))
+					outline  = "%04x\t%08o\t%s\t\t\t" % (cur_address,val,testbuff)
+					relocatable_file.append((val,outline))
+					
 			else:
-				testbuff = "%s %s%s %s" % (label,op, indir, ",".join(args))
-			outline  = "%04x\t%08o\t%s\t\t\t" % (cur_address,val,testbuff)
+				val = oparg | v
+				 
+				if len(args) and args[-1][0] == "#":
+					testbuff = "%s %s%s %s" % (label,op, indir, ",".join(args[:-1]))
+					buf = " *"+args[-1][1:]
+					testbuff += buf.rjust(27 + (len(buf) - len(testbuff))," ")
+				else:
+					testbuff = "%s %s%s %s" % (label,op, indir, ",".join(args))
+
+				outline  = "%04x\t%08o\t%s\t\t\t" % (cur_address,val,testbuff)
+				relocatable_file.append((val,outline))
+				
 			if not supress:
 				print(outline)
-			relocatable_file.append((val,outline))
+
 	else:
 		relocatable_file.append((0x0,"ERROR!"))
 		print(l)

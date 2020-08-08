@@ -10,8 +10,8 @@ STRT CEU  UNIT,W
      DATA '001000
      AIP  UNIT,W
      SAZ
-     BRU  * +2
-     BRU  * -3
+     BRU  *+2
+     BRU  *-3
 READ AIP  UNIT,W
      LSL  8
      AIP  UNIT,W,R

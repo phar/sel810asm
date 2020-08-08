@@ -1,12 +1,6 @@
 import re
 
-from math import floor, log10
 
-def fexp(f):
-    return int(floor(log10(abs(f)))) if f != 0 else 0
-
-def fman(f):
-    return f/10**fexp(f)
     
 
 def detectarg(curr_address, symbols, argstring):
@@ -35,11 +29,11 @@ def detectarg(curr_address, symbols, argstring):
 		if argstring[bnext] == "'": #alphanumeric
 			bnext += 1
 			t = "str"
-			lambdaparse = lambda x,y=bnext : [ord(x) | 0x80 for x in x[y:-2]] #patches in ASR33 converion of strings
+			lambdaparse = lambda x,y=bnext : [ord(x) for x in x[y:-2]]
 		else:
 			t = "oct"
 			lambdaparse = lambda x,y=bnext,s=sign : int(x[y:],8) * s
-	elif argstring[bnext] == "h": #hex
+	elif argstring[bnext] == "H": #hex
 		bnext += 1
 		t = "hex"
 		lambdaparse = lambda x,y=bnext,s=sign : int(x[y:],16) * s
@@ -63,16 +57,26 @@ def detectarg(curr_address, symbols, argstring):
 		lambdaparse = lambda x,y=bnext,s=sign  : symbols[x[y:]][1] * s
 		
 	else: #bare number.. still more work  these need to be packed into a ye-olde format as words
-		if "." in argstring: #float or fixed
-			if "E" in argstring or "e" in argstring: #float
-				t = "float"
-				lambdaparse = lambda  x  : float(x)
-			else: #fixed
-				t = "fixed"
-				lambdaparse = lambda  x  : Decimal(x)
+		if "E" in argstring: #flating point data
+			t = "float"
+			lambdaparse = lambda  x  : 0.0 #known bad output
+
+		elif "D" in argstring: #floating point double precision
+			t = "double_float"
+			lambdaparse = lambda  x  : 0.0
+
+		elif "C" in argstring: #fixed point double precision
+			t = "fixed_double"
+			lambdaparse = lambda  x  : 0.0
+
+		elif "B" in argstring: #fixed point single precision
+			t = "fixed_single"
+			lambdaparse = lambda  x  : 0.0
+			
 		else:#decimal
 			t = "dec"
 			lambdaparse = lambda  x: int(x)
+			
 	return (t,lambdaparse)
 	
 	
@@ -81,6 +85,7 @@ def parsearg(curr_address,symbols, argstring):
 	argparts = re.split("(\+|\-)",argstring)
 	total = lambda :0
 	mth = lambda x,y : x()+y()
+#	print(argstring)
 	for i in range(len(argparts)):
 		if argparts[i] != "":
 			if argparts[i] in ["+","-"]:
