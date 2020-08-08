@@ -67,11 +67,11 @@ def detectarg(curr_address, symbols, argstring):
 
 		elif "C" in argstring: #fixed point double precision
 			t = "fixed_double"
-			lambdaparse = lambda  x  : 0.0
+			lambdaparse = lambda  x  : int(float(x.split("C")[0]) * (10 ** int(x.split("C")[1]))) & 0xffffffff
 
 		elif "B" in argstring: #fixed point single precision
 			t = "fixed_single"
-			lambdaparse = lambda  x  : 0.0
+			lambdaparse = lambda  x  : int(float(x.split("B")[0]) * (10 ** int(x.split("B")[1]))) & 0xffff
 			
 		else:#decimal
 			t = "dec"

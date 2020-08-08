@@ -37,7 +37,6 @@ NAME's (library)
 CALL's 
 libraries
 floats
-doubles
 FORM
 FDAT
 </pre>

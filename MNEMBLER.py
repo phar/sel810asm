@@ -43,23 +43,24 @@ def pack_data(type, data):
 				
 			wordlist.append(r)
 			
-	elif type == 'float':
-		wordlist.append(0)
-		
-	elif type == 'double_float':
+	elif type == 'float': #2 words  i cant figure out how to pack these
 		wordlist.append(0)
 		wordlist.append(0)
 
-	elif type == 'fixed_double':
+	elif type == 'double_float': #3 words
 		wordlist.append(0)
 		wordlist.append(0)
+		wordlist.append(0)
+
+	elif type == 'fixed_double':  #this is a bit of a guess about how to pack these, the manual isnt explicit, so i assume scientific notation
+		wordlist.append((data >> 16) & 0xffff)
+		wordlist.append(data & 0xffff)
 		
-	elif type == 'fixed_single':
-		wordlist.append(0)
+	elif type == 'fixed_single':#this is a bit of a guess about how to pack these, the manual isnt explicit, so i assume scientific notation
+		wordlist.append(data & 0xffff)
 
 	elif type == 'dec':
 		wordlist.append(data & SEL_INT_MAX)
-
 
 	else:
 		pass #fixme
