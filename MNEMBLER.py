@@ -682,9 +682,15 @@ for (lnum,cur_address,op,indirect_bit,args,oparg,oparg_calc,supress) in program_
 			for s,a in SYMBOLS.items():
 				if a[1] == cur_address:
 					label = s
+<<<<<<< HEAD
 				
 			if indirect_bit:
 				indir = "*"
+=======
+
+			if v < 0:
+				val = l[3] | (abs(v) | 0x8000) #its a 16 bit value so to fix the sign bit 
+>>>>>>> parent of 9600c07... more negative shenangans
 			else:
 				indir = " "
 				
