@@ -221,11 +221,12 @@ def asm_pass_1(filename,base_address=0):
 						continue
 					else:
 						if label:
-							if label not in SYMBOLS:
+#							if label not in SYMBOLS:
 								SYMBOLS[label] = ("int",cur_address)
-							else:
-								print("****\n%s:%d duplicate symbol definition\n***" % (filename,lnum))
-								sys.exit(-1)
+#							else:
+#								print(SYMBOLS)
+#								print("****\n%s:%d duplicate symbol (%s) definition\n***" % (filename,lnum,label))
+#								sys.exit(-1)
 					if op:
 						if op in PSEUDO_OPCODES:
 							if op == "REL":
@@ -246,7 +247,7 @@ def asm_pass_1(filename,base_address=0):
 								args = addridx.split(" ")
 								#FIXME, arg[1] should be an optional addres.. but.. i dont think i handle it at all
 								#am i expected to emit an ORG?
-								fooargs.append(args[0])
+								fooargs = [args[0]]
 								if len(args) > 1:
 									fooargs.append(args[1])
 								if comment:
@@ -262,7 +263,7 @@ def asm_pass_1(filename,base_address=0):
 							elif op == "BES":
 								args = addridx.split(" ")
 								#FIXME, arg[1] should be an optional addres.. but.. i dont think i handle it at all
-								fooargs.append(args[0])
+								fooargs = [args[0]]
 								if len(args) > 1:
 									fooargs.append(args[1])
 								if comment:
@@ -682,18 +683,15 @@ for (lnum,cur_address,op,indirect_bit,args,oparg,oparg_calc,supress) in program_
 			for s,a in SYMBOLS.items():
 				if a[1] == cur_address:
 					label = s
-<<<<<<< HEAD
-				
+
 			if indirect_bit:
 				indir = "*"
-=======
-
-			if v < 0:
-				val = l[3] | (abs(v) | 0x8000) #its a 16 bit value so to fix the sign bit 
-<<<<<<< HEAD
->>>>>>> parent of 9600c07... more negative shenangans
 			else:
 				indir = " "
+#			if v < 0:
+#				val = l[3] | (abs(v) | 0x8000) #its a 16 bit value so to fix the sign bit
+#			else:
+#				indir = " "
 				
 			if not label:
 				label = "    "
@@ -714,8 +712,6 @@ for (lnum,cur_address,op,indirect_bit,args,oparg,oparg_calc,supress) in program_
 					outline  = "%04x\t%08o\t%s\t\t\t" % (cur_address,val,testbuff)
 					relocatable_file.append((val,outline))
 					
-=======
->>>>>>> parent of 9600c07... more negative shenangans
 			else:
 				val = oparg | v
 				 
