@@ -690,6 +690,7 @@ for (lnum,cur_address,op,indirect_bit,args,oparg,oparg_calc,supress) in program_
 
 			if v < 0:
 				val = l[3] | (abs(v) | 0x8000) #its a 16 bit value so to fix the sign bit 
+<<<<<<< HEAD
 >>>>>>> parent of 9600c07... more negative shenangans
 			else:
 				indir = " "
@@ -713,6 +714,8 @@ for (lnum,cur_address,op,indirect_bit,args,oparg,oparg_calc,supress) in program_
 					outline  = "%04x\t%08o\t%s\t\t\t" % (cur_address,val,testbuff)
 					relocatable_file.append((val,outline))
 					
+=======
+>>>>>>> parent of 9600c07... more negative shenangans
 			else:
 				val = oparg | v
 				 
