@@ -122,15 +122,25 @@ def SELDISASM(opcode):
 	return (opcode, nmemonic, indir,  args,comment, second_word, second_word_hint)
 
 			
+
+def loadProgramBin(filename):
+	size = os.path.getsize(filename)
+	f = open(filename,"rb")
+	b = f.read(size)
+	binfile = struct.unpack(">%dH" % (size/2), b)
+	return binfile
+
+			
+	
 if __name__ == '__main__':
 	file= sys.argv[1]
-	size = os.path.getsize(file)
-
-	f = open(file,"rb")
-	b = f.read(size)
-
-	binfile = struct.unpack(">%dH" % (size/2), b)
-
+#	size = os.path.getsize(file)
+#
+#	f = open(file,"rb")
+#	b = f.read(size)
+#
+#	binfile = struct.unpack(">%dH" % (size/2), b)
+	binfile = loadProgramBin(file)
 	second_word = False
 	i = 0
 	for val in  binfile:
