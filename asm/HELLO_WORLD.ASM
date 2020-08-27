@@ -1,4 +1,4 @@
-     REL
+*     REL
      SPB  PRNT
      HLT
 TTY  HLT

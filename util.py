@@ -9,6 +9,20 @@ def fman(f):
     return f/10**fexp(f)
     
 
+def dec2twoscmplment(val):
+	if val < 0:
+	#	val = ((~abs(v) + 1)  & 0xffff)#its a 16 bit value so to fix the sign bit
+		val = val + 2**16
+	return val
+
+
+def twoscmplment2dec(val):
+	if val & 0x8000:
+		val = val - (2**16)
+	return val
+	
+
+
 def detectarg(curr_address, symbols, argstring):
 	#'003003      #octal
 	#+'003003      #octal

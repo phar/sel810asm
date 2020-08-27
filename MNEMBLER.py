@@ -388,15 +388,16 @@ def asm_pass_1(filename,base_address=0):
 							addr = addridx
 							if indirect_bit:
 								i_flag = True
-								
 							if addr[0] == "=":
 								x_flag = True
 								args.append(addr)
 								if comment:
 									args.append("#%s"%comment)
-								program_listing.append((lnum,cur_address,op,indirect_bit,args,(MREF_OPCODES[op] << 17 ) | LOADER_FORMATS[LITERAL_LOAD][1]| ( LOADER_BITMASKS["X_FLAG"] * x_flag )| ( LOADER_BITMASKS["R_FLAG"] * r_flag ), lambda x=cur_address,y=addr[1:]: [parsearg(x,SYMBOLS,y)()],supress_output))
+								program_listing.append((lnum,cur_address,op,indirect_bit,args,(MREF_OPCODES[op] << 17 ) | LOADER_FORMATS[LITERAL_LOAD][1]| ( LOADER_BITMASKS["X_FLAG"] * x_flag )| ( LOADER_BITMASKS["I_FLAG"] * i_flag )| ( LOADER_BITMASKS["R_FLAG"] * r_flag ), lambda x=cur_address,y=addr[1:]: [parsearg(x,SYMBOLS,y)()],supress_output))
 								handled = True
 							else:
+#								print("indir",op)
+
 								r_flag = True
 								if len(addridx.split(",")) == 1:
 									addr = addridx
@@ -521,8 +522,8 @@ def asm_pass_2(object_code):
 
 		elif fmt == 0b01:
 			r =   (val & 0x200000) >> 21
-			x = (val & 0x100) >> 8
-			i = (val & 0x80) >> 7
+			x = (val & 0x10000) >> 16
+			i = (val & 0x8000) >> 15
 			addr = (val & 0xffff)
 			opcode = (val & 0x1e0000) >> 17
 			map = True #i dont know why it is but it is
@@ -615,10 +616,7 @@ for (lnum,cur_address,op,indirect_bit,args,oparg,oparg_calc,supress) in program_
 				if a[1] == cur_address:
 					label = s
 
-			if v < 0:
-				val = oparg | ((~abs(v) + 1)  & 0xffff)#its a 16 bit value so to fix the sign bit
-			else:
-				val = oparg | v
+			val = oparg | dec2twoscmplment(v)
 				
 			if indirect_bit:
 				indir = "*"
