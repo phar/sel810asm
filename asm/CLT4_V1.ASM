@@ -177,7 +177,7 @@ STOP CLA
      STA  HOLT
      STA  HALT
      BRU  TOI
-ONE  LAA  CNT1                      AOP 44
+ONE  LAA  CNTI                      AOP 44
      STA  AOP
      LAA  CNTJ                      AIP '46,XX  #MIKE FIXME
      STA  AIP
@@ -248,7 +248,7 @@ SEVN LAA  CNTX                      AOP 50
      LAA  IN2                       IN CH 52
      STA  TBLE+7
      BRU  ALL                       TST 16 BITS
-EGHT LAA  CNT2                      AOP 51
+EGHT LAA  CNTZ                      AOP 51
      STA  AOP
      LAA  CNT1                      AIP 53
      STA  AIP
@@ -294,7 +294,7 @@ TOI  SPB  CLIR
      SPB  CRLF
      TOI
      BRU* TTYR
-TTY0                               #MIKE FIXME TTY0 OR TTYO
+TTY0 HLT                              #MIKE FIXME TTY0 OR TTYO
      AOP  1,W
      LSL  8
      AOP  1,W
@@ -407,7 +407,7 @@ CNTE DATA '170350                   AIP CH 50
 CNTF LBA  =-8
 CNTG AMA  TBLB+8,1
 CNTH STA  TBLB+8,1
-CNT1 DATA '170144
+CNTI DATA '170144
 CNTJ DATA '170346
 CNTK AMA  TBLB+16,1
 CNTL STA  TBLB+16,1

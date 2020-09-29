@@ -1,5 +1,11 @@
 <pre>
 
+********* 
+the assembler here is a bit of a dev dead end, it will produce relative binaries and the tools will pack them.. 
+I rewrote the assembler while tinkering with an emulator and that rewrite can be found in the sel810emu repository
+*************
+
+
 .227 files are direct reads of 24 bit format from tape
 .obj files are raw 24 bit loader object files
 .bin are raw 16 bit opcode files

@@ -89,7 +89,7 @@ CRLF HLT
      BRU* CRLF
 CNTR DATA 0
 CNTA DATA 0
-     **** ********                  **********************
+**********************************
      ORG  '200
      AIP  '40,W                     INPT SEC
      STA  CMPR                      STORE F/COMPARE
@@ -149,7 +149,7 @@ RITE CLA
      AOP  '42,W                     OUPT TOR NIX
      BRU  BEGN
 CMPR DATA 0
-     **** ********                  ***********************
+***********************************
      ORG  '400
      AIP  '40,W                     INPUT SEC
      LSL  12                        SAVE UNITS ONLY
@@ -172,7 +172,7 @@ BIGN AIP  '40,W
      BRU  BIGN
 TEMP DATA 0
 DATA DATA 0
-     **** ********                  ***********************
+***********************************
      ORG  '430
      CLA
      STA  LOCA

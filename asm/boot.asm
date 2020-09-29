@@ -2,13 +2,11 @@
 * BOOT STRAP LOADER FROM TAPE
 ****************************
      ABS
-     ORG  '001000
-*I STILL DONT KNOW WHAT CHAN ACTUALLY IS, DEFINED TO MATCH BINARY
 CHAN EQU  '007673
-UNIT EQU  2
+UNIT EQU  1
 STRT CEU  UNIT,W
-     DATA '001000
-     AIP  UNIT,W
+     DATA '004000
+     AIP  UNIT,W                      commenty
      SAZ
      BRU  *+2
      BRU  *-3

@@ -123,13 +123,6 @@ def SELDISASM(opcode):
 
 			
 
-def loadProgramBin(filename):
-	size = os.path.getsize(filename)
-	f = open(filename,"rb")
-	b = f.read(size)
-	binfile = struct.unpack(">%dH" % (size/2), b)
-	return binfile
-
 			
 	
 if __name__ == '__main__':

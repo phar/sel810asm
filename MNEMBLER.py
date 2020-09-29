@@ -108,9 +108,9 @@ def get_unique_label():
 			raise ValueError
 	return s
 	
-def asm_pass_1(filename,base_address=0):
+def asm_pass_1(filename):
 	program_listing = []
-	cur_address = base_address
+	cur_offset_from_org = 0
 	supress_output = False
 	in_macro_name = None
 	ll = load_file(filename)
@@ -178,7 +178,7 @@ def asm_pass_1(filename,base_address=0):
 						continue
 					else:
 						if label:
-							SYMBOLS[label] = ("int",cur_address)
+							SYMBOLS[label] = ("int",cur_offset_from_org)
 					
 					if op:
 						if op in PSEUDO_OPCODES:
@@ -201,10 +201,10 @@ def asm_pass_1(filename,base_address=0):
 								if comment:
 									fooargs.append("#%s"%comment)
 
-								for d in range(0,parsearg(cur_address,SYMBOLS, args[0])(),2):
-									program_listing.append((lnum,cur_address,op,indirect_bit,fooargs, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=0:[x],supress_output))
+								for d in range(0,parsearg(cur_offset_from_org,SYMBOLS, args[0])(),2):
+									program_listing.append((lnum,cur_offset_from_org,op,indirect_bit,fooargs, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=0:[x],supress_output))
 									fooargs = []
-									cur_address += 1
+									cur_offset_from_org += 1
 								handled = True
 								continue
 
@@ -217,11 +217,11 @@ def asm_pass_1(filename,base_address=0):
 								if comment:
 									fooargs.append("#%s"%comment)
 
-								for d in range(0,parsearg(cur_address,SYMBOLS, args[0])(),2):
-									program_listing.append((lnum,cur_address,op,indirect_bit,fooargs, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=0:[x],supress_output))
-									SYMBOLS[label] = ("int",cur_address) #adjust the label to point to the end of the block
+								for d in range(0,parsearg(cur_offset_from_org,SYMBOLS, args[0])(),2):
+									program_listing.append((lnum,cur_offset_from_org,op,indirect_bit,fooargs, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=0:[x],supress_output))
+									SYMBOLS[label] = ("int",cur_offset_from_org) #adjust the label to point to the end of the block
 									fooargs = []
-									cur_address += 1
+									cur_offset_from_org += 1
 								handled = True
 								continue
 
@@ -234,13 +234,13 @@ def asm_pass_1(filename,base_address=0):
 							elif op == "END":
 								if comment:
 									args.append("#%s"%comment)
-								program_listing.append((lnum,cur_address,op,indirect_bit,args,0xe20000 , lambda : [0],supress_output))
+								program_listing.append((lnum,cur_offset_from_org,op,indirect_bit,args,0xe20000 , lambda : [0],supress_output))
 								handled = True
-								cur_address += 1
+								cur_offset_from_org += 1
 								continue
 								
 							elif op == "NAME":
-								#program_listing.append((lnum,cur_address,op,0xe20000 , lambda : [0]),supress_output)
+								#program_listing.append((lnum,cur_offset_from_org,op,0xe20000 , lambda : [0]),supress_output)
 								continue
 								
 							elif op == "NOLS":
@@ -261,11 +261,13 @@ def asm_pass_1(filename,base_address=0):
 							elif op == "ORG":
 								r_flag = True
 								try:
-									cur_address = parsearg(cur_address,SYMBOLS,addridx)()
-									args.append("'%06o" % cur_address)
+#									cur_offset_from_org = parsearg(cur_offset_from_org,SYMBOLS,addridx)() #not sure i mean to comment this out
+									cur_offset_from_org = 0
+									org_address = parsearg(cur_offset_from_org,SYMBOLS,addridx)()
+									args.append("'%06o" % org_address)
 									if comment:
 										args.append("#%s"%comment)
-									program_listing.append((lnum,cur_address,op,indirect_bit,args, LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ) | ( LOADER_BITMASKS["R_FLAG"] * r_flag ) , lambda x=cur_address, y=addridx:  [parsearg(x,SYMBOLS,y)() ],supress_output))
+									program_listing.append((lnum,org_address,op,indirect_bit,args, LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ) | ( LOADER_BITMASKS["R_FLAG"] * r_flag ) , lambda x=org_address, y=addridx:  [parsearg(x,SYMBOLS,y)() ],supress_output))
 									handled = True
 									continue
 									
@@ -288,7 +290,7 @@ def asm_pass_1(filename,base_address=0):
 										args.append("1")
 								if comment:
 									args.append("#%s"%comment)
-								program_listing.append((lnum,cur_address,op,indirect_bit,args, (indirect_bit<<14), lambda x=cur_address,y=val: [parsearg(x,SYMBOLS,y)()],supress_output))
+								program_listing.append((lnum,cur_offset_from_org,op,indirect_bit,args, (indirect_bit<<14), lambda x=cur_offset_from_org,y=val: [parsearg(x,SYMBOLS,y)()],supress_output))
 								handled = True
 								continue
 
@@ -301,7 +303,7 @@ def asm_pass_1(filename,base_address=0):
 									lst = addridx.split(",")
 									
 								for li in lst:
-									data = parsearg(cur_address,SYMBOLS,li)()
+									data = parsearg(cur_offset_from_org,SYMBOLS,li)()
 										
 									if isinstance(data,list):
 										foobuff = []
@@ -316,16 +318,16 @@ def asm_pass_1(filename,base_address=0):
 												r =  (data[d] << 8) | (data[d+1])
 											except IndexError:
 												r = data[d]
-											program_listing.append((lnum,cur_address,op,indirect_bit,["'%06o" % r]+foobuff, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=r:[x],supress_output))
-											cur_address += 1
+											program_listing.append((lnum,cur_offset_from_org,op,indirect_bit,["'%06o" % r]+foobuff, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=r:[x],supress_output))
+											cur_offset_from_org += 1
 											foobuff = []
 
 									else:
 										args.append("'%06o" % data)
 										if comment:
 											args.append("#%s"%comment)
-										program_listing.append((lnum,cur_address,op,indirect_bit,args,LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=data:[x],supress_output))
-										cur_address += 1
+										program_listing.append((lnum,cur_offset_from_org,op,indirect_bit,args,LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ), lambda x=data:[x],supress_output))
+										cur_offset_from_org += 1
 									
 								handled = True
 								continue
@@ -333,7 +335,7 @@ def asm_pass_1(filename,base_address=0):
 							elif op == "EQU":
 								try:
 									args.append(addridx)
-									SYMBOLS[label] = ("int",parsearg(cur_address, SYMBOLS, addridx)()) #first pass only
+									SYMBOLS[label] = ("int",parsearg(cur_offset_from_org, SYMBOLS, addridx)()) #first pass only
 								except Exception as  err:
 									print("****\n%s:%d generated the following error\n***" % (filename,lnum))
 									traceback.print_exc()
@@ -357,9 +359,9 @@ def asm_pass_1(filename,base_address=0):
 										args.append("1")
 								if comment:
 									args.append("#%s"%comment)
-								program_listing.append((lnum,cur_address,"DAC",indirect_bit, args, LOADER_FORMATS[MREF_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag )|LOADER_BITMASKS["DAC"] ,lambda x=cur_address,y=val:[parsearg(x,SYMBOLS,y)()],supress_output))
+								program_listing.append((lnum,cur_offset_from_org,"DAC",indirect_bit, args, LOADER_FORMATS[MREF_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag )|LOADER_BITMASKS["DAC"] ,lambda x=cur_offset_from_org,y=val:[parsearg(x,SYMBOLS,y)()],supress_output))
 								handled = True
-								cur_address += 1
+								cur_offset_from_org += 1
 								continue
 								
 							elif op == "EAC": #not right either
@@ -380,7 +382,7 @@ def asm_pass_1(filename,base_address=0):
 										
 								if comment:
 									args.append("#%s"%comment)
-								program_listing.append((lnum,cur_address,"EAC",args, LOADER_FORMATS[MREF_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag )|LOADER_BITMASKS["EAC"] ,lambda x=cur_address,y=val:[parsearg(x,SYMBOLS,y)()]),supress_output)
+								program_listing.append((lnum,cur_offset_from_org,"EAC",args, LOADER_FORMATS[MREF_LOAD][1] | ( LOADER_BITMASKS["R_FLAG"] * r_flag )|( LOADER_BITMASKS["X_FLAG"] * x_flag )|LOADER_BITMASKS["EAC"] ,lambda x=cur_offset_from_org,y=val:[parsearg(x,SYMBOLS,y)()]),supress_output)
 								handled = True
 								continue
 								
@@ -393,7 +395,7 @@ def asm_pass_1(filename,base_address=0):
 								args.append(addr)
 								if comment:
 									args.append("#%s"%comment)
-								program_listing.append((lnum,cur_address,op,indirect_bit,args,(MREF_OPCODES[op] << 17 ) | LOADER_FORMATS[LITERAL_LOAD][1]| ( LOADER_BITMASKS["X_FLAG"] * x_flag )| ( LOADER_BITMASKS["I_FLAG"] * i_flag )| ( LOADER_BITMASKS["R_FLAG"] * r_flag ), lambda x=cur_address,y=addr[1:]: [parsearg(x,SYMBOLS,y)()],supress_output))
+								program_listing.append((lnum,cur_offset_from_org,op,indirect_bit,args,(MREF_OPCODES[op] << 17 ) | LOADER_FORMATS[LITERAL_LOAD][1]| ( LOADER_BITMASKS["X_FLAG"] * x_flag )| ( LOADER_BITMASKS["I_FLAG"] * i_flag )| ( LOADER_BITMASKS["R_FLAG"] * r_flag ), lambda x=cur_offset_from_org,y=addr[1:]: [parsearg(x,SYMBOLS,y)()],supress_output))
 								handled = True
 							else:
 #								print("indir",op)
@@ -411,15 +413,15 @@ def asm_pass_1(filename,base_address=0):
 										args.append("1")
 								if comment:
 									args.append("#%s"%comment)
-								program_listing.append((lnum,cur_address,op,indirect_bit,args, (MREF_OPCODES[op] << 17 ) | LOADER_FORMATS[MEMREF_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag )| ( LOADER_BITMASKS["I_FLAG"] * i_flag )| ( LOADER_BITMASKS["R_FLAG"] * r_flag ), lambda x=cur_address,y=addr: [parsearg(x,SYMBOLS,y)()],supress_output))
+								program_listing.append((lnum,cur_offset_from_org,op,indirect_bit,args, (MREF_OPCODES[op] << 17 ) | LOADER_FORMATS[MEMREF_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag )| ( LOADER_BITMASKS["I_FLAG"] * i_flag )| ( LOADER_BITMASKS["R_FLAG"] * r_flag ), lambda x=cur_offset_from_org,y=addr: [parsearg(x,SYMBOLS,y)()],supress_output))
 								handled = True
-							cur_address += 1
+							cur_offset_from_org += 1
 
 						elif op in AUGMENTED_OPCODES:
 							shift_count = 0
 							if addridx and addridx.strip() != "":
 								try:
-									shift_count = parsearg(cur_address,SYMBOLS,addridx)()
+									shift_count = parsearg(cur_offset_from_org,SYMBOLS,addridx)()
 									if shift_count:
 										args.append("'%o" % shift_count)
 										
@@ -431,9 +433,9 @@ def asm_pass_1(filename,base_address=0):
 							opcode = (AUGMENTED_OPCODES[op][0] << 12) | (shift_count << 6) | AUGMENTED_OPCODES[op][1]
 							if comment:
 								args.append("#%s"%comment)
-							program_listing.append((lnum,cur_address,op,indirect_bit,args, LOADER_FORMATS[DIRECT_LOAD][1], lambda y=opcode: [y],supress_output))
+							program_listing.append((lnum,cur_offset_from_org,op,indirect_bit,args, LOADER_FORMATS[DIRECT_LOAD][1], lambda y=opcode: [y],supress_output))
 							handled = True
-							cur_address += 1
+							cur_offset_from_org += 1
 							
 						elif op in IO_OPCODES:
 							x_bit = False
@@ -465,9 +467,9 @@ def asm_pass_1(filename,base_address=0):
 							opcode = (IO_OPCODES[op][0] << 12) | (index_bit << 11) | (indirect_bit << 10) | (map_bit << 9) | (wait_bit << 6) | (IO_OPCODES[op][1] << 7)
 							if comment:
 								args.append("#%s"%comment)
-							program_listing.append((lnum,cur_address,op,indirect_bit,args, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ) | opcode,lambda x=cur_address,y=unit:[parsearg(x,SYMBOLS,y)()],supress_output))
+							program_listing.append((lnum,cur_offset_from_org,op,indirect_bit,args, LOADER_FORMATS[DIRECT_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ) | opcode,lambda x=cur_offset_from_org,y=unit:[parsearg(x,SYMBOLS,y)()],supress_output))
 							handled = True
-							cur_address += 1
+							cur_offset_from_org += 1
 
 						elif op in INT_OPCODES:
 							augment_code = 0
@@ -482,11 +484,11 @@ def asm_pass_1(filename,base_address=0):
 							opcode = (INT_OPCODES[op] << 12) | augment_code
 							if comment:
 								args.append("#%s"%comment)
-							program_listing.append((lnum,cur_address,op,indirect_bit,args, LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ),lambda x=opcode, y=augment_code, z=cur_address:[parsearg(z,SYMBOLS, y)()|x],supress_output))
+							program_listing.append((lnum,cur_offset_from_org,op,indirect_bit,args, LOADER_FORMATS[LITERAL_LOAD][1] | ( LOADER_BITMASKS["X_FLAG"] * x_flag ),lambda x=opcode, y=augment_code, z=cur_offset_from_org:[parsearg(z,SYMBOLS, y)()|x],supress_output))
 							args.append("'%06o" % opcode)
 
 							handled = True
-							cur_address += 1
+							cur_offset_from_org += 1
 							
 						else:
 							print("unhandled opcode [%s] on %s:%d in first pass.. you should fix that.. fatal" % (op,filename,lnum))
@@ -521,18 +523,21 @@ def asm_pass_2(object_code):
 			current_addr+=1
 
 		elif fmt == 0b01:
+#			print("moo")
+
 			r =   (val & 0x200000) >> 21
 			x = (val & 0x10000) >> 16
 			i = (val & 0x8000) >> 15
-			addr = (val & 0xffff)
+			addr = (val & 0x7fff)
 			opcode = (val & 0x1e0000) >> 17
-			map = True #i dont know why it is but it is
+#			map = True #i dont know why it is but it is
+			map = False
+#			print(addr)
+#			print(org_addr)
+			print("%06o\t" % ((opcode << 12) | (x << 11) | (i << 10) |  (map << 9) |((addr + org_addr)  & 0x1ff)), ol)
 			
-			#map bit! #reloc bit #DAC #EAC FIXME
-			
-			print("%06o\t" % ((opcode << 12) | (x << 11) | (i << 10) |  (map << 9) |((addr + org_addr)  & 0x3fff)), ol)
-			
-			absfile[org_addr].append(((opcode << 12) | (x << 11) | (i << 10)  |  (map << 9)| ((addr + org_addr) & 0x3fff),ol) )
+			absfile[org_addr].append( ( (opcode << 12) | (x << 11) | (i << 10)  | ((addr + org_addr) & 0x1ff),ol) )
+
 			handled = True
 			idx += 1
 			current_addr+=1
@@ -555,12 +560,12 @@ def asm_pass_2(object_code):
 			r =   (val & 0x200000) >> 21
 			opcode = (val & 0x1e0000) >> 17
 			isliteral = val &0x10000
-			
 			if(isliteral):
-				literal = (val & 0xffff)
-				if opcode == 0: #augmented opcodes
-					augmentcode = (val & 0x3f)
-					
+				literal = (val & 0x3fff)
+				print("%06o\t" % literal, ol)
+				absfile[org_addr].append((literal,ol))
+				handled = True
+				
 			else: #special action
 				address = (val & 0x7fff)
 				n = (val & 0x8000) >> 15
@@ -568,8 +573,10 @@ def asm_pass_2(object_code):
 				if opcode==0:
 					print("set org")
 					current_addr = address
-					absfile[org_addr] = []
-
+					absfile[address] = []
+					org_addr = address
+					handled = True
+					
 				elif opcode == 1:
 					print("end")
 					return absfile
@@ -608,12 +615,12 @@ write_symbols(".".join(filename.split(".")[:-1]))
 
 print("creating relocatable binary")
 relocatable_file = []
-for (lnum,cur_address,op,indirect_bit,args,oparg,oparg_calc,supress) in program_listing:
+for (lnum,cur_offset_from_org,op,indirect_bit,args,oparg,oparg_calc,supress) in program_listing:
 	if oparg != None:
 		for v in oparg_calc():
 			label = ""
 			for s,a in SYMBOLS.items():
-				if a[1] == cur_address:
+				if a[1] == cur_offset_from_org:
 					label = s
 
 			val = oparg | dec2twoscmplment(v)
@@ -634,7 +641,7 @@ for (lnum,cur_address,op,indirect_bit,args,oparg,oparg_calc,supress) in program_
 				testbuff += buf.rjust(27 + (len(buf) - len(testbuff))," ")
 			else:
 				testbuff = "%s %s%s %s" % (label,op, indir, ",".join(args))
-			outline  = "%04x\t%08o\t%s\t\t\t" % (cur_address,val,testbuff)
+			outline  = "%04x\t%08o\t%s\t\t\t" % (cur_offset_from_org,val,testbuff)
 			if not supress:
 				print(outline)
 			relocatable_file.append((val,outline))
@@ -660,13 +667,15 @@ else:
 	absolute_file = asm_pass_2(relocatable_file)
 	
 	print("writing absolute binary")
+#	print (absolute_file)
 	for ml,absf in absolute_file.items():
-		fn = "%s-ORG_%04x.bin"  % (".".join(filename.split(".")[:-1]), ml)
-		f = open(fn, "wb")
-		
-		for val,line in absf:
-			f.write(struct.pack(">H", val))
+		if len(absf):
+			fn = "%s-ORG_%04x.bin"  % (".".join(filename.split(".")[:-1]), ml)
+			f = open(fn, "wb")
 			
-	f.close()
+			for val,line in absf:
+				f.write(struct.pack(">H", val))
+				
+			f.close()
 
 	print("uh.. we dont really support absolute mode right now")
